@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.paint.Color?>
+<?import javafx.scene.text.Font?>
+
+<VBox prefHeight="600.0" prefWidth="900.0" xmlns="http://javafx.com/javafx/21.0.0" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ro.ascb.frontend.controller.MainController" stylesheets="@../styles/main.css">
+  <children>
+  <MenuBar VBox.vgrow="NEVER" styleClass="app-menu">
+      <menus>
+        <Menu mnemonicParsing="false" text="File">
+          <items>
+            <MenuItem mnemonicParsing="false" text="Quit" />
+          </items>
+        </Menu>
+        <Menu mnemonicParsing="false" text="Help">
+          <items>
+            <MenuItem mnemonicParsing="false" text="About App" />
+          </items>
+        </Menu>
+      </menus>
+    </MenuBar>
+    <!-- Hero area: app title and subtle subtitle (lovable-like) -->
+    <HBox alignment="CENTER_LEFT" spacing="12" styleClass="app-hero" VBox.vgrow="NEVER">
+      <children>
+        <Label text="ASCB Manager" />
+  <Label text="— gestiune voluntari &amp; evenimente" styleClass="hero-sub" />
+      </children>
+      <padding>
+        <Insets top="10" bottom="10" left="14" right="14" />
+      </padding>
+    </HBox>
+
+  <SplitPane dividerPositions="0.2,0.7" VBox.vgrow="ALWAYS">
+      <items>
+        <!-- Meniu lateral -->
+        <AnchorPane>
+          <children>
+            <Button layoutX="10.0" layoutY="65.0" prefHeight="28.0" prefWidth="202.0" text="Voluntari" onAction="#handleVoluntari" styleClass="nav-button"/>
+            <Button layoutX="10.0" layoutY="110.0" prefHeight="28.0" prefWidth="202.0" text="Evenimente" onAction="#handleEvenimente" styleClass="nav-button"/>
+          </children>
+        </AnchorPane>
+
+        <!-- Zona centrala pentru continut -->
+        <ScrollPane fitToHeight="true" fitToWidth="true">
+          <content>
+            <AnchorPane fx:id="contentPane" prefHeight="545.0" prefWidth="430.0">
+              <children>
+              <!-- Tabel Evenimente -->
+                <TableView fx:id="evenimenteTable" layoutX="10.0" layoutY="10.0" prefWidth="650.0" prefHeight="700.0" visible="false">
+                  <columns>
+                    <TableColumn fx:id="colDenumire" text="Denumire" prefWidth="200.0"/>
+                    <TableColumn fx:id="colData" text="Data" prefWidth="200.0"/>
+                    <TableColumn fx:id="colDescriere" text="Descriere" prefWidth="250.0"/>
+                  </columns>
+                </TableView>
+                <Button fx:id="adaugaEvenimentBtn" layoutX="250.0" layoutY="720.0" prefWidth="150.0" text="Adaugă Eveniment" onAction="#handleAdaugaEveniment" visible="false"/>
+
+                <!-- Search + Tabel Voluntari -->
+                <HBox fx:id="searchBar" visible="false" spacing="8" layoutX="10" layoutY="10.0" styleClass="search-pill">
+                  <children>
+                    <TextField fx:id="txtSearch" promptText="Caută Nume sau Prenume..." prefWidth="300" />
+                    <Button fx:id="searchBtn" text="Caută" onAction="#applySearch" />
+                    <Button fx:id="clearSearchBtn" text="Clear" onAction="#clearSearch" />
+                  </children>
+                </HBox>
+
+                <TableView fx:id="voluntariTable" layoutX="10" layoutY="44.0" prefWidth="760" prefHeight="700" visible="false" styleClass="lovable-table">
+                  <columns>
+                    <TableColumn fx:id="colNume" text="Nume" prefWidth="140"/>
+                    <TableColumn fx:id="colPrenume" text="Prenume" prefWidth="140"/>
+                    <TableColumn fx:id="colOreVoluntariat" text="Ore" prefWidth="80"/>
+                    <TableColumn fx:id="colDataIntrare" text="Data Intrare" prefWidth="120"/>
+                    <TableColumn fx:id="colStatus" text="Status" prefWidth="90"/>
+                    <TableColumn fx:id="colDescriereVoluntar" text="Descriere" prefWidth="170"/>
+
+                  </columns>
+                </TableView>
+                <Button fx:id="adaugaVoluntarBtn" layoutX="250.0" layoutY="710.0" prefWidth="150.0" text="Adaugă Voluntar" onAction="#handleAdaugaVoluntar" visible="false" styleClass="button secondary"/>
+              </children>
+            </AnchorPane>
+          </content>
+        </ScrollPane>
+
+        <!-- Panou dreapta pentru detalii -->
+        <AnchorPane prefWidth="270">
+          <children>
+            <!-- Panou detalii voluntar -->
+            <AnchorPane fx:id="detailsPane" visible="false" styleClass="card" AnchorPane.topAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.bottomAnchor="0.0">
+              <children>
+                <!-- Medium-density layout: anchor the content to fill the card so padding is internal -->
+                <VBox spacing="8" AnchorPane.topAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.bottomAnchor="0.0">
+                  <Label text="Detalii Voluntar" />
+
+                  <GridPane hgap="10" vgap="8" VBox.vgrow="ALWAYS">
+                    <padding>
+                      <Insets left="4.0" right="4.0" top="2.0" bottom="2.0" />
+                    </padding>
+                    <columnConstraints>
+                      <!-- make label column narrower so inputs shift left -->
+                      <ColumnConstraints percentWidth="25" hgrow="ALWAYS" />
+                      <ColumnConstraints percentWidth="75" hgrow="ALWAYS" />
+                    </columnConstraints>
+
+                    <!-- Row 0: Nume -->
+                    <Label text="Nume:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                    <TextField fx:id="txtNume" prefWidth="160" GridPane.columnIndex="1" GridPane.rowIndex="0" GridPane.hgrow="ALWAYS" />
+
+                    <!-- Row 1: Prenume -->
+                    <Label text="Prenume:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                    <TextField fx:id="txtPrenume" prefWidth="160" GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.hgrow="ALWAYS" />
+
+                    <!-- Row 2: Data Intrare -->
+                    <Label text="Data Intrare:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+                    <DatePicker fx:id="dataIntrare" prefWidth="140" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+                    <!-- Row 3: Status (moved under Data Intrare) -->
+                    <Label text="Status:" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+                    <ComboBox fx:id="statusCombo" prefWidth="120" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+
+                    <!-- Row 4: Ore Voluntariat (moved under Data Intrare) -->
+                    <Label text="Ore voluntariat:" GridPane.columnIndex="0" GridPane.rowIndex="4" />
+                    <TextField fx:id="txtOreVoluntariat" prefWidth="60" promptText="Ex:10" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+
+                    <!-- Row 5: Ultima participare -->
+                    <Label text="Ultima participare:" GridPane.columnIndex="0" GridPane.rowIndex="5" />
+                    <Label fx:id="lblUltimaParticipare" text="-" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+
+                    <!-- Row 6: Descriere (medium height) -->
+                    <Label text="Descriere:" GridPane.columnIndex="0" GridPane.rowIndex="6" />
+                    <TextArea fx:id="txtDescriereVoluntar" wrapText="true" prefRowCount="2" prefWidth="220" GridPane.columnIndex="1" GridPane.rowIndex="6" GridPane.hgrow="ALWAYS" GridPane.vgrow="ALWAYS" />
+                  </GridPane>
+
+                  <!-- Events area: moderately sized list + selector in a horizontal box -->
+                  <HBox spacing="10" VBox.vgrow="ALWAYS">
+                    <VBox spacing="4" VBox.vgrow="ALWAYS">
+                      <Label text="Evenimente participare:" />
+                      <ListView fx:id="listEvenimenteVoluntar" prefHeight="110" prefWidth="180" VBox.vgrow="ALWAYS" />
+                    </VBox>
+                    <VBox spacing="6">
+                      <Label text="Adaugă la:" />
+                      <ComboBox fx:id="comboEvenimenteDisponibile" prefWidth="160" />
+                      <Button text="Adaugă eveniment" onAction="#handleAdaugaEvenimentVoluntar" />
+                      <Button text="Șterge eveniment" onAction="#handleStergeEvenimentVoluntar" />
+                    </VBox>
+                  </HBox>
+
+                  <!-- Action buttons -->
+                  <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Button fx:id="salveazaBtn" text="Salvează Voluntar" onAction="#handleSalveazaVoluntar" />
+                    <Button fx:id="stergeBtn" text="Șterge Voluntar" onAction="#handleStergeVoluntar" />
+                  </HBox>
+                </VBox>
+              </children>
+            </AnchorPane>
+
+            <!-- Panou detalii eveniment -->
+            <AnchorPane fx:id="eventDetailsPane" visible="false" styleClass="card" AnchorPane.topAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.bottomAnchor="0.0">
+              <children>
+                <VBox spacing="10" AnchorPane.topAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.bottomAnchor="0.0">
+                  <Label text="Detalii Eveniment" />
+
+                  <Label text="Denumire:" />
+                  <TextField fx:id="txtDenumireEveniment" prefWidth="200"/>
+
+                  <Label text="Data:" />
+                  <DatePicker fx:id="dataEvenimentPicker" prefWidth="200"/>
+
+                  <Label text="Descriere:" />
+                  <TextArea fx:id="txtDescriereEveniment" prefWidth="200" prefHeight="100"/>
+
+                  <Button fx:id="salveazaEvenimentBtn" text="Salvează Eveniment" onAction="#handleSalveazaEveniment"/>
+                  <Button fx:id="btnStergeEveniment" text="Sterge Eveniment" onAction="#handleStergeEveniment"/>
+                </VBox>
+              </children>
+            </AnchorPane>
+          </children>
+        </AnchorPane>
+
+      </items>
+    </SplitPane>
+    <HBox alignment="CENTER_LEFT" spacing="5.0" VBox.vgrow="NEVER">
+      <children>
+        <Label text="Left status" HBox.hgrow="ALWAYS"/>
+        <Pane HBox.hgrow="ALWAYS" />
+        <Label text="Right status" />
+      </children>
+      <padding>
+        <Insets bottom="3.0" left="3.0" right="3.0" top="3.0" />
+      </padding>
+    </HBox>
+  </children>
+</VBox>

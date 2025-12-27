@@ -1,0 +1,113 @@
+/* Palette (beige/peach + deep blues) - best-practice: use consistent semantic colors */
+
+/*
+  Colors provided by user:
+   - Peach / beige: #FBE4D6 (rgb(251,228,214))
+   - Primary deep blue: #261FB3 (rgb(38,31,179))
+   - Navy: #161179 (rgb(22,17,121))
+   - Dark navy / almost black-blue: #0C0950 (rgb(12,9,80))
+
+  Notes: JavaFX CSS does not support CSS custom properties like modern browsers,
+  so we apply the palette consistently by using the hex values directly.
+*/
+
+/* Global */
+.root {
+    -fx-font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    -fx-background-color: linear-gradient(180deg, #fbf6f3 0%, #fffefc 100%); /* very light peach-tinted background */
+    -fx-text-fill: #0C0950; /* dark navy for primary text */
+}
+
+/* Hero */
+.app-hero {
+    -fx-background-color: linear-gradient(90deg, rgba(38,31,179,0.10), rgba(22,17,121,0.06));
+    -fx-padding: 12 16 12 16;
+    -fx-alignment: CENTER_LEFT;
+    -fx-effect: dropshadow(gaussian, rgba(12,9,80,0.03), 8, 0, 0, 2);
+}
+.app-hero .label { -fx-font-size: 18px; -fx-font-weight: 700; -fx-text-fill: #0C0950; }
+.app-hero .hero-sub { -fx-font-size: 12px; -fx-text-fill: rgba(12,9,80,0.85); }
+
+/* Menu bar */
+.menu-bar, .app-menu { -fx-background-color: linear-gradient(#261FB3, #161179); -fx-padding: 6 10 6 10; }
+.menu-bar .label { -fx-text-fill: white; }
+
+/* Left nav buttons - pill style */
+.nav-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #161179;
+    -fx-background-radius: 999px;
+    -fx-border-radius: 999px;
+    -fx-padding: 8 12 8 12;
+    -fx-font-weight: 600;
+}
+.nav-button:hover { -fx-background-color: rgba(38,31,179,0.08); }
+.nav-button:focused { -fx-effect: dropshadow(gaussian, rgba(38,31,179,0.12), 8, 0, 0, 1); }
+
+/* Primary buttons */
+.button {
+    -fx-background-color: linear-gradient(#261FB3, #161179);
+    -fx-text-fill: white;
+    -fx-background-radius: 999px;
+    -fx-padding: 8 16 8 16;
+    -fx-font-weight: 700;
+}
+.button:hover { -fx-background-color: linear-gradient(#2e26d9, #171286); }
+.button:pressed { -fx-background-color: #0C0950; }
+.button.secondary { -fx-background-color: transparent; -fx-border-color: rgba(12,9,80,0.12); -fx-text-fill: #161179; -fx-border-radius: 999px; }
+
+/* Cards */
+.card, #detailsPane, #eventDetailsPane {
+    -fx-background-color: #fffefc; /* almost white with a warm tint */
+    -fx-border-color: rgba(12,9,80,0.06);
+    -fx-border-radius: 12px;
+    -fx-background-radius: 12px;
+    -fx-padding: 12;
+    -fx-effect: dropshadow(gaussian, rgba(12,9,80,0.04), 10, 0, 0, 4);
+}
+
+/* Content container */
+#contentPane { -fx-background-color: transparent; -fx-padding: 10; }
+
+/* Search pill */
+.search-pill { -fx-background-color: rgba(251,228,214,0.92); -fx-padding: 8; -fx-background-radius: 999px; -fx-alignment: CENTER_LEFT; }
+.search-pill .text-field { -fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 6 8 6 8; }
+
+/* Table styling */
+.lovable-table, .table-view { -fx-background-color: transparent; -fx-border-color: transparent; -fx-border-radius: 10px; -fx-padding: 4; }
+.lovable-table .column-header-background { -fx-background-color: linear-gradient(#261FB3, #161179); -fx-effect: dropshadow(gaussian, rgba(12,9,80,0.04), 3, 0, 0, 1); }
+.lovable-table .column-header .label { -fx-text-fill: white; -fx-font-weight:700; }
+.table-row-cell:odd { -fx-background-color: #ffffff; }
+.table-row-cell:even { -fx-background-color: rgba(251,228,214,0.18); }
+.table-row-cell:selected { -fx-background-color: linear-gradient(#261FB3, #161179); -fx-text-fill: white; }
+
+/* Inputs */
+.text-field, .combo-box, .date-picker, .text-area {
+    -fx-background-color: white;
+    -fx-border-color: rgba(12,9,80,0.08);
+    -fx-border-radius: 8px;
+    -fx-padding: 8 10 8 10;
+}
+.text-field:focused, .combo-box:focused, .date-picker:focused, .text-area:focused { -fx-border-color: #261FB3; -fx-effect: dropshadow(gaussian, rgba(38,31,179,0.12), 8, 0, 0, 1); }
+
+/* Labels */
+.label { -fx-text-fill: #0C0950; -fx-font-weight:600; }
+.grid-pane .label, .vbox .label { -fx-font-size: 13px; }
+
+/* List view tweaks */
+.list-view { -fx-background-color: white; -fx-border-radius: 8px; -fx-padding: 6; }
+.list-view .list-cell:filled:selected { -fx-background-color: linear-gradient(#261FB3, #161179); -fx-text-fill: white; }
+
+/* Footer */
+.hbox { -fx-padding: 8 12 8 12; }
+.small-muted { -fx-text-fill: rgba(12,9,80,0.7); -fx-font-size: 11px; }
+
+/* Focus outlines */
+.button:focused, .text-field:focused, .combo-box:focused { -fx-effect: dropshadow(gaussian, rgba(38,31,179,0.16), 8, 0, 0, 1); }
+
+/* Table header size */
+.table-view .column-header .label { -fx-font-size: 13px; }
+
+/* Utility */
+.centered { -fx-alignment: CENTER; }
+
