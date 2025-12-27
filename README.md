@@ -1,4 +1,4 @@
-ASC BDB — Java 21 upgrade notes
+ASCB DB — Java 21 upgrade notes
 ===============================
 
 This repository contains two Maven modules:
