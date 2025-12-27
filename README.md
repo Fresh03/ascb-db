@@ -190,3 +190,7 @@ Follow-ups I can do for you
 - Add a short `CONTRIBUTING.md` or `RUNNING.md` with the same steps separated.
 
 If you'd like me to commit the README and POM/FXML changes to a branch, tell me the branch name and I'll create the branch and commit the files for you.
+
+## Security (Important)
+Do NOT store personal access tokens (PATs) or other secrets in the repository or README. Create a short-lived PAT with the minimum scopes required and revoke it immediately after use. See https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token for guidance.
+
