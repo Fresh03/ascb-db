@@ -218,7 +218,7 @@ function Start-Application {
         Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
         
         # Start backend in dev mode
-        $backendProcess = Start-Process -FilePath cmd.exe -ArgumentList "/c", "cd /d `"$backendDir`" && mvn spring-boot:run -Dspring-boot.run.profiles=dev -q" -WindowStyle Hidden -PassThru
+        $backendProcess = Start-Process -FilePath cmd.exe -ArgumentList "/c", "cd", "/d", "`"$backendDir`"", "&&", "mvn", "spring-boot:run", "-Dspring-boot.run.profiles=dev", "-q" -WindowStyle Hidden -PassThru
         
         # Wait for dev backend to start
         $attempt = 0

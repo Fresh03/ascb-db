@@ -76,8 +76,7 @@ if (-not $backendReady) {
     Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
     
     # Start backend in dev mode
-    $backendProcess = Start-Process -FilePath "cmd" -ArgumentList "/k cd /d $backendDir && mvn spring-boot:run -Dspring-boot.run.profiles=dev -q" -NoNewWindow -PassThru
-    
+        $backendProcess = Start-Process -FilePath "cmd" -ArgumentList "/k", "cd", "/d", $backendDir, "&&", "mvn", "spring-boot:run", "-Dspring-boot.run.profiles=dev", "-q" -NoNewWindow -PassThru
     # Wait for dev backend to start
     $attempt = 0
     while ($attempt -lt 20 -and -not $backendReady) {
