@@ -1,0 +1,102 @@
+╔═══════════════════════════════════════════════════════════════╗
+║         ASCB Database Management System - START HERE          ║
+╚═══════════════════════════════════════════════════════════════╝
+
+🎯 CHOOSE YOUR METHOD:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ IF YOU'RE ON A NEW COMPUTER WITH NOTHING INSTALLED:
+
+   👉 DOUBLE-CLICK: setup-and-run.bat
+
+   ✓ Automatically downloads Java 21 (if needed)
+   ✓ Automatically downloads Maven (if needed)
+   ✓ Starts the application
+   ✓ Closes launcher when GUI appears
+
+   ⏱️  First run may take 5-10 minutes (downloads ~250 MB)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ IF YOU ALREADY HAVE JAVA 21 & MAVEN INSTALLED:
+
+   👉 DOUBLE-CLICK: start-ascb.bat
+
+   ✓ Instant start (skips setup checks)
+   ✓ Launches backend + frontend
+   ✓ Closes launcher when GUI appears
+
+   ⏱️  First run may take 1-2 minutes (first build)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ IF YOU WANT MANUAL CONTROL:
+
+   👉 RIGHT-CLICK: setup-and-run.ps1 → Run with PowerShell
+
+   OR in Command Prompt:
+   
+      powershell -NoProfile -ExecutionPolicy Bypass ^
+        -File setup-and-run.ps1
+
+   Options:
+   - setup-and-run.ps1                    (Full setup)
+   - setup-and-run.ps1 -SkipJavaSetup     (Skip Java check)
+   - setup-and-run.ps1 -SkipMavenSetup    (Skip Maven check)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚡ QUICK REQUIREMENTS:
+
+   ✓ Windows 10+ (64-bit)
+   ✓ Internet connection
+   ✓ ~1.5 GB disk space (Java + Maven + app)
+   ✓ 2 GB RAM (minimum)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📖 DETAILED GUIDES:
+
+   → README.md                 Full documentation
+   → SETUP_INSTRUCTIONS.md     Step-by-step setup
+   → DISTRIBUTION_CHECKLIST.md For sharing with others
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❓ TROUBLESHOOTING:
+
+   Nothing appears for 2 minutes?
+   → Check Task Manager → Applications → Should see:
+     • java.exe (Backend)
+     • java.exe (Frontend)
+
+   "PowerShell cannot run this script"?
+   → Right-click setup-and-run.ps1
+   → Properties → Check "Unblock" → OK
+   → Right-click → Run with PowerShell
+
+   Still stuck?
+   → Read SETUP_INSTRUCTIONS.md for manual setup
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎮 WHEN THE APPLICATION STARTS:
+
+   1. Login window appears → Enter admin credentials
+   2. Main dashboard opens
+   3. To stop → Close the frontend window
+      (Backend will shut down automatically)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ RECOMMENDED: 
+
+   >>> DOUBLE-CLICK setup-and-run.bat <<<
+
+   Works on any Windows computer, automatically handles 
+   everything!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For developers: See README.md for full documentation

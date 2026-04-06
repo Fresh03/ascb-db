@@ -188,7 +188,7 @@ function Start-Application {
     }
     
     Write-Status "Starting Backend Server on port 8080..." "INFO"
-    $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; mvn spring-boot:run -q" -WindowStyle Hidden -PassThru
+    $backendProcess = Start-Process -FilePath cmd.exe -ArgumentList "/c", "cd /d `"$backendDir`" && mvn spring-boot:run -q" -WindowStyle Hidden -PassThru
     
     Write-Status "Waiting for backend to initialize..." "INFO"
     
@@ -218,7 +218,7 @@ function Start-Application {
         Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
         
         # Start backend in dev mode
-        $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; mvn -DskipTests -Dspring-boot.run.profiles=dev spring-boot:run -q" -WindowStyle Hidden -PassThru
+        $backendProcess = Start-Process -FilePath cmd.exe -ArgumentList "/c", "cd /d `"$backendDir`" && mvn -DskipTests -Dspring-boot.run.profiles=dev spring-boot:run -q" -WindowStyle Hidden -PassThru
         
         # Wait for dev backend to start
         $attempt = 0
@@ -243,7 +243,7 @@ function Start-Application {
     }
     
     Write-Status "Starting Frontend Application..." "INFO"
-    Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$frontendDir'; mvn -DskipTests javafx:run" -WindowStyle Minimized
+    Start-Process -FilePath cmd.exe -ArgumentList "/c", "cd /d `"$frontendDir`" && mvn -DskipTests javafx:run" -WindowStyle Minimized
     
     Write-Status "Waiting for GUI to appear..." "INFO"
     $counter = 0

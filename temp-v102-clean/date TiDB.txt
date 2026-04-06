@@ -1,0 +1,6 @@
+user: 4Hta8q1eQcF14e8.fresh
+host:gateway01-privatelink.eu-central-1.prod.aws.tidbcloud.com
+port:4000
+
+
+password:4LqGzVogtBT8GpvH
