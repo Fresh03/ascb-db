@@ -1,0 +1,17 @@
+======================================== 
+   ASCB Database Management System    
+======================================== 
+05.04.2026 23:50:41,98 
+ 
+Checking Java installation... 
+Java found successfully. 
+Checking Maven installation... 
+Maven found successfully. 
+Skipping Maven test for now... 
+Maven test successful. 
+About to start ASCB Database System... 
+ 
+Starting ASCB Database System... 
+Script location: D:\Facultate\ASCB\ASCBDB\ 
+Current directory before cd: 
+D:\Facultate\ASCB\ASCBDB

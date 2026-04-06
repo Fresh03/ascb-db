@@ -1,196 +1,348 @@
-ASCB DB — Java 21 upgrade notes
-===============================
+# ASCB Database Management System
 
-This repository contains two Maven modules:
-- `backend` — Spring Boot backend (Spring Boot 3.5.3)
-- `frontend` — JavaFX frontend (OpenJFX via javafx-maven-plugin)
+A complete Java 21 application for managing ASCB volunteers through a web-connected database.
 
-Summary: Java runtime upgrade
-----------------------------
-- The project has been updated to target Java 21 (LTS).
-- Changes made:
-  - `backend/pom.xml` — `<java.version>` set to `21`, `maven-compiler-plugin` configured to use `<release>${java.version}</release>` and a `lombok.version` property added and applied so annotation processing resolves.
-  - `frontend/pom.xml` — `<java.version>` set to `21` and compiler plugin configured to use `<release>${java.version}</release>`.
-  - `frontend` FXML files updated to use the JavaFX 21 namespace (to match runtime).
+## Quick Start (3 Options)
 
-Why this README
-----------------
-When switching a project to a new Java major release you must ensure the build/runtime use a matching JDK. Typical symptom when the shell/IDE still uses an older JDK is:
+### 1️⃣ **Automatic Setup (Recommended for Fresh Windows)**
 
-  "Fatal error compiling: error: release version 21 not supported"
+If you're on a computer with **nothing installed**:
 
-This README documents how to run the project correctly under Java 21 and how to reproduce or troubleshoot issues.
+```bash
+# Run ONE of these:
+setup-and-run.bat          # Batch version (easiest)
 
-Quick run instructions (PowerShell)
-----------------------------------
-Below are exact PowerShell commands you can copy/paste to run the project locally on Windows. There are two helper options:
+# OR right-click and "Run with PowerShell":
+setup-and-run.ps1          # PowerShell version (auto-downloads Java & Maven)
+```
 
-- Recommended: run the included helper script (it finds a JDK 21 on your machine and sets `JAVA_HOME` in the current shell).
-- Manual: set `JAVA_HOME` yourself in the shell if you prefer.
+**What happens:**
+- ✅ Detects Java 21 (downloads if missing)
+- ✅ Detects Maven (downloads if missing)
+- ✅ Builds and starts backend on port 8080
+- ✅ Starts frontend GUI in separate window
+- ✅ Closes launcher when GUI appears
 
-Important notes before running:
-- The `frontend` module does not include a Maven wrapper (`mvnw.cmd`) so use your system `mvn` (ensure it's on PATH).
-- The helper script is `scripts\setup-jdk21-and-build.ps1` and must be run from the repository root.
+### 2️⃣ **Quick Guide (Already have Java & Maven)**
 
-Option A — recommended (use the helper script)
+```bash
+quick-setup.bat            # Just checks for Java/Maven and runs app
+```
 
-Open two PowerShell windows (Terminal A = backend, Terminal B = frontend).
+### 3️⃣ **Manual (If prefer direct control)**
 
-# Terminal A — backend (MySQL / production mode)
-```powershell
-Set-Location 'D:\Facultate\ASCB\ASCBDB'
-.\scripts\setup-jdk21-and-build.ps1
-Set-Location 'D:\Facultate\ASCB\ASCBDB\backend'
-# Run using the MySQL configuration defined in backend/src/main/resources/application.properties
+```bash
+# Terminal 1 - Backend
+cd ascb-db/backend
+mvn clean compile install spring-boot:run
+
+# Terminal 2 - Frontend
+cd ascb-db/frontend  
+mvn clean compile install javafx:run
+```
+
+---
+
+## System Architecture
+
+```
+┌──────────────────────────────────────────┐
+│  Frontend (JavaFX)                       │
+│  - Login screen                          │
+│  - Volunteer management UI               │
+│  - Real-time data display                │
+└──────────────────┬───────────────────────┘
+                   │ HTTP Client
+                   ↓
+┌──────────────────────────────────────────┐
+│  Backend (Spring Boot 3.5.3)             │
+│  - REST API on :8080                     │
+│  - Authentication (JWT)                  │
+│  - Database operations                   │
+└──────────────────┬───────────────────────┘
+                   │ JDBC
+                   ↓
+┌──────────────────────────────────────────┐
+│  TiDB Cloud Database (MySQL-compatible)  │
+│  - Volunteers table                      │
+│  - Admin credentials                     │
+│  - Secure connection (SSL)               │
+└──────────────────────────────────────────┘
+```
+
+---
+
+## Features
+
+### ✅ Volunteer Management
+- Add/Edit/Delete volunteers
+- Track volunteer status and information
+- Search and filter capabilities
+- Data validation and error handling
+
+### ✅ Authentication
+- Admin login system
+- JWT token-based security
+- Secure password storage
+- Session management
+
+### ✅ Database
+- Cloud-hosted TiDB database
+- Automatic schema management
+- Connection pooling
+- Transaction support
+
+### ✅ GUI
+- Modern JavaFX interface
+- Responsive layout
+- Real-time updates
+- Graceful shutdown
+
+---
+
+## Requirements
+
+**Automatically installed by setup script:**
+- ✅ Java 21 JDK (Eclipse Temurin)
+- ✅ Maven 3.9.6
+
+**Manually required:**
+- ✅ Windows 10+ (64-bit) or Linux/Mac (using bash)
+- ✅ Internet connection (database & first-time setup)
+- ✅ 500 MB disk space (for Java + Maven)
+- ✅ 2 GB RAM (minimum)
+
+---
+
+## Configuration
+
+### Database Connection
+Edit `ascb-db/backend/src/main/resources/application.properties`:
+
+```properties
+spring.datasource.url=jdbc:mysql://YOUR_HOST:4000/ascb_db?useSSL=true&serverTimezone=UTC
+spring.datasource.username=YOUR_USERNAME
+spring.datasource.password=YOUR_PASSWORD
+```
+
+### Backend Port
+Default: `8080`
+Change in `application.properties`:
+```properties
+server.port=8080
+```
+
+---
+
+## Stopping the Application
+
+**Option 1:** Close the frontend GUI window (cleanest)
+- Frontend sends shutdown signal to backend
+- Both applications terminate gracefully
+
+**Option 2:** Close backend terminal(s)
+- Manually terminate backend (if needed)
+
+**Option 3:** Kill Java processes (emergency)
+```bash
+taskkill /F /IM java.exe     # Windows
+pkill java                    # Linux/Mac
+```
+
+---
+
+## Troubleshooting
+
+### "Java not found"
+```bash
+# Download from: https://adoptium.net/temurin/releases/
+# Install Java 21 for your OS
+# Restart setup script
+```
+
+### "Maven not found"
+```bash
+# Download from: https://maven.apache.org/download.cgi
+# Extract to C:\apache-maven (Windows)
+# Add to PATH and restart
+```
+
+### "Connection refused" on localhost:8080
+```bash
+# Check if backend is running:
+netstat -an | findstr :8080    # Windows
+lsof -i :8080                  # Linux/Mac
+
+# If not running, check logs in:
+ascb-db/backend/target/
+```
+
+### "Database connection failed"
+1. Check internet connection
+2. Verify TiDB credentials in application.properties
+3. Ensure TiDB Cloud instance is running
+4. Check firewall rules
+
+### "GUI doesn't appear"
+1. Check if Java process is running: `tasklist | findstr java`
+2. Check temp folder logs
+3. Try running with `-Dlog4j.configuration=file:log4j.properties`
+
+---
+
+## Project Structure
+
+```
+ascb-db/
+├── backend/
+│   ├── src/main/java/ro/ascb/ascb_db_backend/
+│   │   ├── AscbDbBackendApplication.java
+│   │   ├── config/
+│   │   │   ├── JwtFilter.java
+│   │   │   └── SecurityConfig.java
+│   │   ├── controller/
+│   │   │   ├── ApiController.java
+│   │   │   ├── AuthController.java
+│   │   │   └── DebugController.java
+│   │   ├── model/
+│   │   ├── repository/
+│   │   └── service/
+│   ├── src/main/resources/
+│   │   └── application.properties
+│   └── pom.xml
+│
+├── frontend/
+│   ├── src/main/java/ro/ascb/frontend/
+│   │   ├── MainApp.java
+│   │   ├── controller/
+│   │   │   ├── LoginController.java
+│   │   │   └── MainController.java
+│   │   └── model/
+│   ├── src/main/resources/
+│   │   ├── fxml/
+│   │   │   ├── Login.fxml
+│   │   │   └── Main.fxml
+│   │   ├── images/
+│   │   └── styles/
+│   │       └── main.css
+│   └── pom.xml
+│
+├── start-ascb.bat           (Simple launcher)
+├── setup-and-run.bat        (Auto-setup launcher)
+├── setup-and-run.ps1        (PowerShell auto-setup)
+├── quick-setup.bat          (Lightweight check + run)
+└── pom.xml
+```
+
+---
+
+## Build and Deploy
+
+### Development Build
+```bash
+cd ascb-db
+mvn clean install
+```
+
+### Production Build
+```bash
+mvn clean package -P production
+```
+
+### Create Distribution
+```bash
+# Package everything for sharing:
+REM Include in ZIP:
+REM - ascb-db/ folder
+REM - setup-and-run.bat
+REM - setup-and-run.ps1
+REM - quick-setup.bat
+REM - SETUP_INSTRUCTIONS.md
+```
+
+---
+
+## Development Setup
+
+### IDE Setup (IntelliJ IDEA or VS Code)
+
+1. **Open project** → Select ascb-db folder
+2. **Configure JDK** → Set to Java 21
+3. **Run configurations:**
+   - Backend: `Main class: ro.ascb.ascb_db_backend.AscbDbBackendApplication`
+   - Frontend: `Main class: ro.ascb.frontend.MainApp`
+
+### CLI Build & Run
+
+```bash
+# Backend
+cd ascb-db/backend
+mvn clean compile
 mvn spring-boot:run
+
+# Frontend (separate terminal)
+cd ascb-db/frontend
+mvn clean compile
+mvn javafx:run
 ```
 
-If you want the backend to run using the in-memory H2 dev profile instead (no MySQL needed):
-```powershell
-Set-Location 'D:\Facultate\ASCB\ASCBDB\backend'
-mvn -Dspring-boot.run.profiles=dev spring-boot:run
-```
+---
 
-# Terminal B — frontend (GUI)
-```powershell
-Set-Location 'D:\Facultate\ASCB\ASCBDB'
-.\scripts\setup-jdk21-and-build.ps1
-Set-Location 'D:\Facultate\ASCB\ASCBDB\frontend'
-# frontend uses system 'mvn' (no mvnw in frontend module)
-mvn -DskipTests javafx:run
-```
+## Keyboard Shortcuts
 
-Option B — manual JAVA_HOME (if you don't want to use the helper script)
+- `Alt+F4` or `Ctrl+Q` - Quit application (graceful shutdown)
+- `Tab` - Focus next field
+- `Enter` - Submit form
 
-Set `JAVA_HOME` and PATH in each PowerShell window before running Maven (replace path if your JDK differs):
-```powershell
-$env:JAVA_HOME = 'C:\Program Files\Eclipse Adoptium\jdk-21.0.8.9-hotspot'
-$env:PATH = "$env:JAVA_HOME\bin;${env:PATH}"
+---
 
-# verify
-java -version
-mvn -v
+## Security Notes
 
-# then run backend and frontend as shown in Option A (use the 'backend' and 'frontend' folders)
-```
+⚠️ **For Production Use:**
+1. Change default admin credentials in database
+2. Use HTTPS instead of HTTP
+3. Enable firewall rules
+4. Implement API rate limiting
+5. Add request validation
+6. Use environment variables for sensitive config
+7. Enable database backups
+8. Implement audit logging
 
-If you need to run the frontend against a custom backend URL (different host/port):
-```powershell
-Set-Location 'D:\Facultate\ASCB\ASCBDB\frontend'
-mvn -DskipTests javafx:run -Dbackend.url=http://127.0.0.1:8080
-```
+---
 
-If you see "Fatal error compiling: error: release version 21 not supported" when running `mvn`, make sure the same shell has `java -version` and `mvn -v` showing Java 21. Re-run the helper script or set `JAVA_HOME` as shown above.
+## Support & Issues
 
-Notes:
-- The `dev` profile uses an embedded H2 database and enables the H2 console at `/h2-console`.
-- A default admin user is created at startup by `DataLoader` when the `dev` profile runs:
-  - email: `admin@ascb.ro`
-  - password: `parola123`
+If you encounter issues:
 
-5) Build and run frontend (session must use JDK21, see the helper above):
+1. **Check logs** in `ascb-db/backend/target/` for error details
+2. **Verify requirements** in Terminal:
+   ```bash
+   java -version         # Should show Java 21
+   mvn -version          # Should show Maven 3.9.x
+   ```
 
-```powershell
-Set-Location 'D:\Facultate\ASCB\ASCBDB\frontend'
-mvn -DskipTests javafx:run
-```
+3. **Test connectivity:**
+   ```bash
+   # Windows:
+   netstat -an | findstr :8080
+   # Linux/Mac:
+   lsof -i :8080
+   ```
 
-Exact commands I used (PowerShell)
----------------------------------
-Below are the exact commands I ran in two separate PowerShell windows during testing. You can copy-paste these directly.
+4. **Clear cache and rebuild:**
+   ```bash
+   mvn clean
+   rm -rf ~/.m2/repository/
+   mvn clean install
+   ```
 
-Option A — use the helper script (recommended):
+---
 
-```powershell
-# in Terminal A (backend)
-.\scripts\setup-jdk21-and-build.ps1
-Set-Location 'D:\Facultate\ASCB\ASCBDB\backend'
-mvn "-Dspring-boot.run.profiles=dev" spring-boot:run
+## License & Credits
 
-# in Terminal B (frontend)
-.\scripts\setup-jdk21-and-build.ps1
-Set-Location 'D:\Facultate\ASCB\ASCBDB\frontend'
-mvn -DskipTests javafx:run
-```
+ASCB Database Management System  
+Built with Java 21, Spring Boot, and JavaFX
 
-Option B — set JAVA_HOME explicitly in each shell (if you prefer):
+---
 
-```powershell
-# in Terminal A (backend)
-$env:JAVA_HOME='C:\Program Files\Eclipse Adoptium\jdk-21.0.8.9-hotspot'
-$env:PATH = "$env:JAVA_HOME\bin;${env:PATH}"
-Set-Location 'D:\Facultate\ASCB\ASCBDB\backend'
-mvn "-Dspring-boot.run.profiles=dev" spring-boot:run
-
-# in Terminal B (frontend)
-$env:JAVA_HOME='C:\Program Files\Eclipse Adoptium\jdk-21.0.8.9-hotspot'
-$env:PATH = "$env:JAVA_HOME\bin;${env:PATH}"
-Set-Location 'D:\Facultate\ASCB\ASCBDB\frontend'
-mvn -DskipTests javafx:run
-```
-
-Run frontend against a custom backend address (example):
-
-```powershell
-# from frontend folder
-mvn -DskipTests javafx:run -Dbackend.url=http://127.0.0.1:8080
-```
-
-Quick smoke test (HTTP):
-
-```powershell
-# Post login using curl (PowerShell):
-curl -X POST -d "email=admin@ascb.ro&password=parola123" http://localhost:8080/auth/login
-# expected response: "Login reușit!"
-```
-
-Run notes and troubleshooting
-----------------------------
-- If you see "release version 21 not supported" when running `mvn`, that means the `javac` that Maven is using is older than Java 21. Re-check `java -version` and `mvn -v` in the same shell and set `JAVA_HOME` for that shell.
-- For a permanent change, set `JAVA_HOME` as a system environment variable (Windows: run `setx JAVA_HOME "C:\Path\To\JDK21" /M` in an elevated PowerShell and restart shells/IDE).
-- If your IDE starts Maven with a different JDK, change the IDE's configured JDK / run configuration to point to JDK 21.
-
-Frontend-specific notes
------------------------
-- The FXML files were standardized to the JavaFX 21 namespace. If you want to use JavaFX 24, you'd need to upgrade the `javafx.version` in `frontend/pom.xml` and ensure the JDK & platform versions are compatible (note: JavaFX 24 uses bytecode compiled for a later spec and may require a matching JDK runtime).
-- The `javafx-maven-plugin` may show a warning about unknown `modules` parameter — this is harmless for running, but you can consider upgrading the plugin if you change plugin configuration.
-- At runtime the frontend attempts to contact the backend (login). Ensure the backend is started and reachable (default: http://localhost:8080 unless otherwise configured).
-
-Backend-specific notes
-----------------------
-- `backend/pom.xml` now includes a `lombok.version` property and uses that for the Lombok dependency and annotationProcessorPaths so annotation processing resolves during compilation.
-- You may see warnings about MySQL Connector relocation (artifact coordinates moved from `mysql:mysql-connector-java` to `com.mysql:mysql-connector-j`). Consider updating POM dependencies to use `com.mysql:mysql-connector-j` and a newer 8.1.x/8.0.x patch release.
-
-Testing & verification
-----------------------
-- Run all tests (ensures runtime + integration tests pass):
-
-```powershell
-cd /d D:\Facultate\ASCB\ASCBDB
-mvn test
-```
-
-Committing changes
-------------------
-If you want to commit the POM and FXML changes I made locally, a suggested flow (create a branch, commit, push):
-
-```powershell
-cd /d D:\Facultate\ASCB\ASCBDB
-git checkout -b upgrade/java-21
-git add backend/pom.xml frontend/pom.xml frontend/src/main/resources/fxml/*.fxml
-git commit -m "Upgrade runtime to Java 21; fix FXML & Lombok resolution"
-# then push (if remote exists):
-# git push -u origin upgrade/java-21
-```
-
-Follow-ups I can do for you
---------------------------
-- Create and push the branch with the changes.
-- Update `mysql` dependency coordinates to `com.mysql:mysql-connector-j` and bump a safe version.
-- Add a short `CONTRIBUTING.md` or `RUNNING.md` with the same steps separated.
-
-If you'd like me to commit the README and POM/FXML changes to a branch, tell me the branch name and I'll create the branch and commit the files for you.
-
-## Security (Important)
-Do NOT store personal access tokens (PATs) or other secrets in the repository or README. Create a short-lived PAT with the minimum scopes required and revoke it immediately after use. See https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token for guidance.
-
+**Ready to use! Follow the Quick Start section above to get started.** 🚀
