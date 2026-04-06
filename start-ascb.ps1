@@ -58,7 +58,7 @@ $backendReady = $false
 while ($attempt -lt $maxAttempts -and -not $backendReady) {
     $attempt++
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:8080/api/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
+        $response = Invoke-WebRequest -Uri "http://localhost:8080/api/debug/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
         if ($response.StatusCode -eq 200) {
             $backendReady = $true
             Write-Host "✓ Backend is ready (took $attempt seconds)" -ForegroundColor Green
@@ -70,8 +70,34 @@ while ($attempt -lt $maxAttempts -and -not $backendReady) {
 }
 
 if (-not $backendReady) {
-    Write-Host "⚠ Backend didn't respond in time, proceeding anyway..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 3
+    Write-Host "⚠ Production backend failed to start, trying dev mode (H2 database)..." -ForegroundColor Yellow
+    
+    # Kill the failed backend process
+    Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
+    
+    # Start backend in dev mode
+    $backendProcess = Start-Process -FilePath "cmd" -ArgumentList "/k cd /d $backendDir && mvn spring-boot:run -Dspring-boot.run.profiles=dev -q" -NoNewWindow -PassThru
+    
+    # Wait for dev backend to start
+    $attempt = 0
+    while ($attempt -lt 20 -and -not $backendReady) {
+        $attempt++
+        try {
+            $response = Invoke-WebRequest -Uri "http://localhost:8080/api/debug/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
+            if ($response.StatusCode -eq 200) {
+                $backendReady = $true
+                Write-Host "✓ Dev backend is ready (took $attempt seconds)" -ForegroundColor Green
+            }
+        } catch {
+            Write-Host -NoNewline "."
+            Start-Sleep -Seconds 1
+        }
+    }
+}
+
+if (-not $backendReady) {
+    Write-Host "❌ Backend failed to start in both modes. Check logs and network connection." -ForegroundColor Red
+    exit 1
 }
 
 Write-Host

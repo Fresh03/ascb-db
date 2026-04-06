@@ -20,6 +20,7 @@ setup-and-run.ps1          # PowerShell version (auto-downloads Java & Maven)
 - ✅ Detects Java 21 (downloads if missing)
 - ✅ Detects Maven (downloads if missing)
 - ✅ Builds and starts backend on port 8080
+- ✅ **Auto-fallback to dev mode** if production database unavailable
 - ✅ Starts frontend GUI in separate window
 - ✅ Closes launcher when GUI appears
 
@@ -177,11 +178,19 @@ lsof -i :8080                  # Linux/Mac
 ascb-db/backend/target/
 ```
 
+### "Backend takes too long to start"
+The application automatically tries two modes:
+1. **Production mode** (TiDB Cloud) - requires internet
+2. **Dev mode** (H2 local database) - works offline
+
+If you see "waiting for backend" for more than 30 seconds, it will automatically switch to dev mode. No manual intervention needed!
+
 ### "Database connection failed"
 1. Check internet connection
 2. Verify TiDB credentials in application.properties
 3. Ensure TiDB Cloud instance is running
 4. Check firewall rules
+5. **Note:** App will automatically use local H2 database if cloud DB fails
 
 ### "GUI doesn't appear"
 1. Check if Java process is running: `tasklist | findstr java`

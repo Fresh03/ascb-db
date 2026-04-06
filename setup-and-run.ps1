@@ -188,7 +188,7 @@ function Start-Application {
     }
     
     Write-Status "Starting Backend Server on port 8080..." "INFO"
-    Start-Process -FilePath cmd.exe -ArgumentList "/c", "cd /d `"$backendDir`" && mvn spring-boot:run -q" -WindowStyle Hidden
+    $backendProcess = Start-Process -FilePath cmd.exe -ArgumentList "/c", "cd /d `"$backendDir`" && mvn spring-boot:run -q" -WindowStyle Hidden -PassThru
     
     Write-Status "Waiting for backend to initialize..." "INFO"
     
@@ -212,8 +212,34 @@ function Start-Application {
     }
     
     if (-not $backendReady) {
-        Write-Status "Backend didn't respond in time, proceeding anyway..." "WARNING"
-        Start-Sleep -Seconds 3
+        Write-Status "Production backend failed, trying dev mode (H2 database)..." "WARNING"
+        
+        # Kill the failed backend process
+        Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
+        
+        # Start backend in dev mode
+        $backendProcess = Start-Process -FilePath cmd.exe -ArgumentList "/c", "cd /d `"$backendDir`" && mvn spring-boot:run -Dspring-boot.run.profiles=dev -q" -WindowStyle Hidden -PassThru
+        
+        # Wait for dev backend to start
+        $attempt = 0
+        while ($attempt -lt 20 -and -not $backendReady) {
+            $attempt++
+            try {
+                $response = Invoke-WebRequest -Uri "http://localhost:8080/api/debug/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
+                if ($response.StatusCode -eq 200) {
+                    $backendReady = $true
+                    Write-Status "Dev backend is ready (took $attempt seconds)" "SUCCESS"
+                }
+            } catch {
+                Write-Host -NoNewline "."
+                Start-Sleep -Seconds 1
+            }
+        }
+    }
+    
+    if (-not $backendReady) {
+        Write-Status "Backend failed to start in both modes. Check network and logs." "ERROR"
+        return $false
     }
     
     Write-Status "Starting Frontend Application..." "INFO"
