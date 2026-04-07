@@ -172,6 +172,22 @@ function Install-Maven {
     }
 }
 
+function Show-RecentLog {
+    param(
+        [string]$Label,
+        [string]$LogPath,
+        [int]$Lines = 30
+    )
+
+    if (Test-Path $LogPath) {
+        Write-Host ""
+        Write-Status "$Label (last $Lines lines):" "WARNING"
+        Get-Content -Path $LogPath -Tail $Lines -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host "  $_"
+        }
+    }
+}
+
 function Start-Application {
     Write-Status "Starting ASCB Database System..." "INFO"
     
@@ -179,10 +195,16 @@ function Start-Application {
     $backendDir = Join-Path $scriptDir "ascb-db\backend"
     $frontendDir = Join-Path $scriptDir "ascb-db\frontend"
     $projectPom = Join-Path $scriptDir "ascb-db\pom.xml"
+    $logsDir = Join-Path $scriptDir "logs"
+    $guiMarker = Join-Path $env:TEMP "ascb_gui_ready.txt"
     $mavenCmd = Join-Path $backendDir "mvnw.cmd"
     if (-not (Test-Path $mavenCmd)) {
         $mavenCmd = "mvn"
     }
+
+    New-Item -ItemType Directory -Force -Path $logsDir | Out-Null
+    Remove-Item $guiMarker -Force -ErrorAction SilentlyContinue
+    Write-Status "Logs will be saved to: $logsDir" "INFO"
     
     if (-not (Test-Path $backendDir)) {
         Write-Status "Backend directory not found at: $backendDir" "ERROR"
@@ -198,14 +220,31 @@ function Start-Application {
     $attempt = 0
     $maxAttempts = 60
 
+    $backendStdOut = Join-Path $logsDir "backend.log"
+    $backendStdErr = Join-Path $logsDir "backend-error.log"
+    $frontendStdOut = Join-Path $logsDir "frontend.log"
+    $frontendStdErr = Join-Path $logsDir "frontend-error.log"
+
+    Remove-Item $backendStdOut, $backendStdErr, $frontendStdOut, $frontendStdErr -Force -ErrorAction SilentlyContinue
+
     if ($PreferCloudDb) {
         Write-Status "Starting Backend Server on port 8080 using TiDB Cloud..." "INFO"
-        $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; & '$mavenCmd' -q -f '$projectPom' -pl backend -am spring-boot:run" -WindowStyle Hidden -PassThru
+        $backendProcess = Start-Process -FilePath $mavenCmd `
+            -ArgumentList @("-q", "-f", $projectPom, "-pl", "backend", "-am", "spring-boot:run") `
+            -WorkingDirectory $backendDir `
+            -WindowStyle Hidden `
+            -RedirectStandardOutput $backendStdOut `
+            -RedirectStandardError $backendStdErr `
+            -PassThru
 
         Write-Status "Waiting for cloud backend to initialize (first run on a new laptop can take longer)..." "INFO"
         $maxAttempts = 120
 
         while ($attempt -lt $maxAttempts -and -not $backendReady) {
+            if ($backendProcess.HasExited) {
+                break
+            }
+
             $attempt++
             try {
                 $response = Invoke-WebRequest -Uri "http://localhost:8080/api/debug/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
@@ -221,17 +260,29 @@ function Start-Application {
 
         if (-not $backendReady) {
             Write-Status "Cloud backend not ready in time; switching to local dev mode (H2 database)..." "WARNING"
-            Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
+            if (-not $backendProcess.HasExited) {
+                Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
+            }
             $attempt = 0
         }
     }
 
     if (-not $backendReady) {
         Write-Status "Starting Backend Server on port 8080 using local H2 mode..." "INFO"
-        $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; & '$mavenCmd' -q -f '$projectPom' -pl backend -am '-Dspring-boot.run.profiles=dev' spring-boot:run" -WindowStyle Hidden -PassThru
+        $backendProcess = Start-Process -FilePath $mavenCmd `
+            -ArgumentList @("-q", "-f", $projectPom, "-pl", "backend", "-am", "-Dspring-boot.run.profiles=dev", "spring-boot:run") `
+            -WorkingDirectory $backendDir `
+            -WindowStyle Hidden `
+            -RedirectStandardOutput $backendStdOut `
+            -RedirectStandardError $backendStdErr `
+            -PassThru
 
         Write-Status "Waiting for local backend to initialize..." "INFO"
         while ($attempt -lt $maxAttempts -and -not $backendReady) {
+            if ($backendProcess.HasExited) {
+                break
+            }
+
             $attempt++
             try {
                 $response = Invoke-WebRequest -Uri "http://localhost:8080/api/debug/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
@@ -247,28 +298,46 @@ function Start-Application {
     }
     
     if (-not $backendReady) {
-        Write-Status "Backend failed to start in both modes. Check network and logs." "ERROR"
+        Write-Status "Backend failed to start in both modes. Check the log files in: $logsDir" "ERROR"
+        Show-RecentLog -Label "Backend standard output" -LogPath $backendStdOut
+        Show-RecentLog -Label "Backend errors" -LogPath $backendStdErr
         return $false
     }
     
     Write-Status "Starting Frontend Application..." "INFO"
-    Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$frontendDir'; $env:BACKEND_URL='http://localhost:8080'; & '$mavenCmd' -q -f '$projectPom' -pl frontend -am -DskipTests javafx:run" -WindowStyle Minimized
+    $env:BACKEND_URL = 'http://localhost:8080'
+    $frontendPom = Join-Path $frontendDir "pom.xml"
+    $frontendProcess = Start-Process -FilePath $mavenCmd `
+        -ArgumentList @("-q", "-f", $frontendPom, "-DskipTests", "org.openjfx:javafx-maven-plugin:0.0.8:run") `
+        -WorkingDirectory $frontendDir `
+        -WindowStyle Minimized `
+        -RedirectStandardOutput $frontendStdOut `
+        -RedirectStandardError $frontendStdErr `
+        -PassThru
     
     Write-Status "Waiting for GUI to appear..." "INFO"
     $counter = 0
     $maxWait = 60
     
     while ($counter -lt $maxWait) {
-        if (Test-Path "$env:TEMP\ascb_gui_ready.txt") {
+        if (Test-Path $guiMarker) {
             Write-Status "GUI is ready! Application started successfully!" "SUCCESS"
-            Remove-Item "$env:TEMP\ascb_gui_ready.txt" -Force -ErrorAction SilentlyContinue
+            Remove-Item $guiMarker -Force -ErrorAction SilentlyContinue
             return $true
         }
+
+        if ($frontendProcess.HasExited) {
+            Write-Status "Frontend process closed before the GUI appeared. Check the log files in: $logsDir" "ERROR"
+            Show-RecentLog -Label "Frontend standard output" -LogPath $frontendStdOut
+            Show-RecentLog -Label "Frontend errors" -LogPath $frontendStdErr
+            return $false
+        }
+
         Start-Sleep -Seconds 1
         $counter++
     }
     
-    Write-Status "Application started (GUI ready timeout)" "WARNING"
+    Write-Status "GUI is still initializing. The app may already be opening; logs are in: $logsDir" "WARNING"
     return $true
 }
 

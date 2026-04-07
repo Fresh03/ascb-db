@@ -21,12 +21,17 @@ if %errorlevel% equ 0 (
     
     REM Run PowerShell with unrestricted execution policy for this script only
     powershell -NoProfile -ExecutionPolicy Bypass -File "!scriptDir!setup-and-run.ps1"
-    
-    if !errorlevel! equ 0 (
-        exit /b 0
+    set "exitCode=!errorlevel!"
+
+    echo.
+    if !exitCode! equ 0 (
+        echo The application launcher finished.
+        echo If the ASCB window is open, you can close this console safely.
     ) else (
-        exit /b 1
+        echo Startup failed. Review the message above and the logs folder, then press any key.
     )
+    pause
+    exit /b !exitCode!
 ) else (
     echo ERROR: PowerShell is not available on this system.
     echo.
