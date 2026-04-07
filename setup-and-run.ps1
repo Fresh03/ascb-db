@@ -176,6 +176,11 @@ function Start-Application {
     $scriptDir = Split-Path -Parent $PSCommandPath
     $backendDir = Join-Path $scriptDir "ascb-db\backend"
     $frontendDir = Join-Path $scriptDir "ascb-db\frontend"
+    $projectPom = Join-Path $scriptDir "ascb-db\pom.xml"
+    $mavenCmd = Join-Path $backendDir "mvnw.cmd"
+    if (-not (Test-Path $mavenCmd)) {
+        $mavenCmd = "mvn"
+    }
     
     if (-not (Test-Path $backendDir)) {
         Write-Status "Backend directory not found at: $backendDir" "ERROR"
@@ -188,7 +193,7 @@ function Start-Application {
     }
     
     Write-Status "Starting Backend Server on port 8080..." "INFO"
-    $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; mvn spring-boot:run -q" -WindowStyle Hidden -PassThru
+    $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; & '$mavenCmd' -q -f '$projectPom' -pl backend -am spring-boot:run" -WindowStyle Hidden -PassThru
     
     Write-Status "Waiting for backend to initialize..." "INFO"
     
@@ -218,7 +223,7 @@ function Start-Application {
         Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
         
         # Start backend in dev mode
-        $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; mvn -DskipTests -Dspring-boot.run.profiles=dev spring-boot:run -q" -WindowStyle Hidden -PassThru
+        $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; & '$mavenCmd' -q -f '$projectPom' -pl backend -am -DskipTests -Dspring-boot.run.profiles=dev spring-boot:run" -WindowStyle Hidden -PassThru
         
         # Wait for dev backend to start
         $attempt = 0
@@ -243,7 +248,7 @@ function Start-Application {
     }
     
     Write-Status "Starting Frontend Application..." "INFO"
-    Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$frontendDir'; mvn -DskipTests javafx:run" -WindowStyle Minimized
+    Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$frontendDir'; $env:BACKEND_URL='http://localhost:8080'; & '$mavenCmd' -q -f '$projectPom' -pl frontend -am -DskipTests javafx:run" -WindowStyle Minimized
     
     Write-Status "Waiting for GUI to appear..." "INFO"
     $counter = 0
@@ -282,8 +287,11 @@ if (-not $SkipJavaSetup) {
     }
 }
 
-# Check and install Maven
-if (-not $SkipMavenSetup) {
+# Check and install Maven only if the bundled Maven Wrapper is unavailable
+$mavenWrapper = Join-Path $PSScriptRoot "ascb-db\backend\mvnw.cmd"
+if (Test-Path $mavenWrapper) {
+    Write-Status "Using bundled Maven Wrapper - no Maven installation required." "SUCCESS"
+} elseif (-not $SkipMavenSetup) {
     Write-Status "Checking Maven installation..." "INFO"
     if (-not (Check-Maven)) {
         Write-Status "Maven not found. Installing Maven 3.9.6..." "WARNING"
@@ -306,8 +314,13 @@ try {
 }
 
 try {
-    $mvnVer = & mvn -version 2>&1
-    Write-Status "Maven: $($mvnVer[0])" "SUCCESS"
+    if (Test-Path $mavenWrapper) {
+        $mvnVer = & $mavenWrapper -version 2>&1
+        Write-Status "Maven Wrapper: $($mvnVer[0])" "SUCCESS"
+    } else {
+        $mvnVer = & mvn -version 2>&1
+        Write-Status "Maven: $($mvnVer[0])" "SUCCESS"
+    }
 } catch {
     Write-Status "Maven verification failed" "ERROR"
     exit 1
