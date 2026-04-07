@@ -5,11 +5,13 @@
 #   .\setup-and-run.ps1                           (Full setup and run)
 #   .\setup-and-run.ps1 -SkipJavaSetup            (Skip Java check, use existing)
 #   .\setup-and-run.ps1 -SkipMavenSetup           (Skip Maven check, use existing)
+#   .\setup-and-run.ps1 -PreferCloudDb            (Try TiDB Cloud first; otherwise local H2 is used)
 #   .\setup-and-run.ps1 -SkipJavaSetup -SkipMavenSetup  (Use existing tools, just run app)
 
 param(
     [switch]$SkipJavaSetup = $false,
-    [switch]$SkipMavenSetup = $false
+    [switch]$SkipMavenSetup = $false,
+    [switch]$PreferCloudDb = $false
 )
 
 function Write-Status {
@@ -192,49 +194,50 @@ function Start-Application {
         return $false
     }
     
-    Write-Status "Starting Backend Server on port 8080..." "INFO"
-    $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; & '$mavenCmd' -q -f '$projectPom' -pl backend -am spring-boot:run" -WindowStyle Hidden -PassThru
-    
-    Write-Status "Waiting for backend to initialize (first run on a new laptop can take longer)..." "INFO"
-    
-    # On a fresh machine Maven Wrapper may still download dependencies, so allow more time
-    # before assuming the cloud-backed startup failed.
-    $maxAttempts = 120
-    $attempt = 0
     $backendReady = $false
-    
-    while ($attempt -lt $maxAttempts -and -not $backendReady) {
-        $attempt++
-        try {
-            $response = Invoke-WebRequest -Uri "http://localhost:8080/api/debug/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
-            if ($response.StatusCode -eq 200) {
-                $backendReady = $true
-                Write-Status "Backend is ready (took $attempt seconds)" "SUCCESS"
-            }
-        } catch {
-            Write-Host -NoNewline "."
-            Start-Sleep -Seconds 1
-        }
-    }
-    
-    if (-not $backendReady) {
-        Write-Status "Cloud backend not ready in time; switching to local dev mode (H2 database)..." "WARNING"
-        
-        # Kill the failed backend process
-        Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
-        
-        # Start backend in dev mode
-        $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; & '$mavenCmd' -q -f '$projectPom' -pl backend -am -DskipTests -Dspring-boot.run.profiles=dev spring-boot:run" -WindowStyle Hidden -PassThru
-        
-        # Wait for dev backend to start
-        $attempt = 0
-        while ($attempt -lt 60 -and -not $backendReady) {
+    $attempt = 0
+    $maxAttempts = 60
+
+    if ($PreferCloudDb) {
+        Write-Status "Starting Backend Server on port 8080 using TiDB Cloud..." "INFO"
+        $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; & '$mavenCmd' -q -f '$projectPom' -pl backend -am spring-boot:run" -WindowStyle Hidden -PassThru
+
+        Write-Status "Waiting for cloud backend to initialize (first run on a new laptop can take longer)..." "INFO"
+        $maxAttempts = 120
+
+        while ($attempt -lt $maxAttempts -and -not $backendReady) {
             $attempt++
             try {
                 $response = Invoke-WebRequest -Uri "http://localhost:8080/api/debug/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
                 if ($response.StatusCode -eq 200) {
                     $backendReady = $true
-                    Write-Status "Dev backend is ready (took $attempt seconds)" "SUCCESS"
+                    Write-Status "Backend is ready (took $attempt seconds)" "SUCCESS"
+                }
+            } catch {
+                Write-Host -NoNewline "."
+                Start-Sleep -Seconds 1
+            }
+        }
+
+        if (-not $backendReady) {
+            Write-Status "Cloud backend not ready in time; switching to local dev mode (H2 database)..." "WARNING"
+            Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
+            $attempt = 0
+        }
+    }
+
+    if (-not $backendReady) {
+        Write-Status "Starting Backend Server on port 8080 using local H2 mode..." "INFO"
+        $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; & '$mavenCmd' -q -f '$projectPom' -pl backend -am '-Dspring-boot.run.profiles=dev' spring-boot:run" -WindowStyle Hidden -PassThru
+
+        Write-Status "Waiting for local backend to initialize..." "INFO"
+        while ($attempt -lt $maxAttempts -and -not $backendReady) {
+            $attempt++
+            try {
+                $response = Invoke-WebRequest -Uri "http://localhost:8080/api/debug/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
+                if ($response.StatusCode -eq 200) {
+                    $backendReady = $true
+                    Write-Status "Local backend is ready (took $attempt seconds)" "SUCCESS"
                 }
             } catch {
                 Write-Host -NoNewline "."
