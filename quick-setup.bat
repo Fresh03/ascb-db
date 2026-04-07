@@ -1,6 +1,6 @@
 @echo off
 REM ASCB Database System - Quick Setup Launcher
-REM Still checks Java 21, but skips Maven installation because the project uses Maven Wrapper.
+REM Still checks Java 17+, but skips Maven installation because the project uses Maven Wrapper.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0setup-and-run.ps1" -SkipMavenSetup
 set "exitCode=%errorlevel%"
 echo.

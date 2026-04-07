@@ -1,5 +1,5 @@
 # ASCB Database System - Setup and Run Script
-# This script automatically installs Java 21 and Maven if not present, then starts the application
+# This script uses Java 17+ (and can install Java 21 if needed) plus Maven Wrapper, then starts the application
 # 
 # Usage:
 #   .\setup-and-run.ps1                           (Full setup and run)
@@ -13,6 +13,9 @@ param(
     [switch]$SkipMavenSetup = $false,
     [switch]$PreferCloudDb = $false
 )
+
+$RequiredJavaVersion = 17
+$PreferredJavaVersion = 21
 
 function Write-Status {
     param([string]$Message, [string]$Status = "INFO")
@@ -69,7 +72,7 @@ function Use-JavaHome {
     return $true
 }
 
-function Find-Java21Home {
+function Find-SupportedJavaHome {
     $candidates = New-Object System.Collections.Generic.List[string]
 
     if ($env:JAVA_HOME) {
@@ -91,7 +94,6 @@ function Find-Java21Home {
         }
 
         Get-ChildItem -Path $location -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -match '21' } |
             Sort-Object Name -Descending |
             ForEach-Object {
                 $candidates.Add($_.FullName)
@@ -106,7 +108,7 @@ function Find-Java21Home {
         try {
             $javaVersion = & java -version 2>&1
             $majorVersion = Get-JavaMajorVersion $javaVersion
-            if ($LASTEXITCODE -eq 0 -and $majorVersion -ge 21) {
+            if ($LASTEXITCODE -eq 0 -and $majorVersion -ge $RequiredJavaVersion) {
                 Write-Status "Using Java $majorVersion from: $candidate" "SUCCESS"
                 return $true
             }
@@ -122,19 +124,19 @@ function Check-Java {
     try {
         $javaVersion = & java -version 2>&1
         $majorVersion = Get-JavaMajorVersion $javaVersion
-        if ($LASTEXITCODE -eq 0 -and $majorVersion -ge 21) {
+        if ($LASTEXITCODE -eq 0 -and $majorVersion -ge $RequiredJavaVersion) {
             Write-Status "Java $majorVersion found: $($javaVersion[0])" "SUCCESS"
             return $true
         }
 
         if ($LASTEXITCODE -eq 0) {
-            Write-Status "Detected Java $majorVersion, but Java 21 or newer is required." "WARNING"
+            Write-Status "Detected Java $majorVersion, but Java $RequiredJavaVersion or newer is required." "WARNING"
         }
     } catch {
         Write-Status "Java not found in PATH" "WARNING"
     }
 
-    if (Find-Java21Home) {
+    if (Find-SupportedJavaHome) {
         return $true
     }
 
@@ -166,8 +168,8 @@ function Install-Java {
             return $false
         }
 
-        if (-not (Find-Java21Home)) {
-            Write-Status "Java installer finished, but Java 21 could not be activated automatically." "ERROR"
+        if (-not (Find-SupportedJavaHome)) {
+            Write-Status "Java installer finished, but a supported Java version could not be activated automatically." "ERROR"
             return $false
         }
 
@@ -468,8 +470,8 @@ Write-Status "Verifying installations..." "INFO"
 try {
     $javaVer = & java -version 2>&1
     $javaMajor = Get-JavaMajorVersion $javaVer
-    if (-not $javaMajor -or $javaMajor -lt 21) {
-        Write-Status "Java 21 or newer is required. Detected: $($javaVer[0])" "ERROR"
+    if (-not $javaMajor -or $javaMajor -lt $RequiredJavaVersion) {
+        Write-Status "Java $RequiredJavaVersion or newer is required. Detected: $($javaVer[0])" "ERROR"
         exit 1
     }
     Write-Status "Java ${javaMajor}: $($javaVer[0])" "SUCCESS"
