@@ -25,35 +25,119 @@ function Write-Status {
     Write-Host "[$Status] $Message" -ForegroundColor $colors[$Status]
 }
 
+function Get-JavaMajorVersion {
+    param([object]$JavaVersionOutput)
+
+    if ($null -eq $JavaVersionOutput) {
+        return $null
+    }
+
+    $versionText = if ($JavaVersionOutput -is [System.Array]) {
+        $JavaVersionOutput -join "`n"
+    } else {
+        [string]$JavaVersionOutput
+    }
+
+    if ($versionText -match 'version\s+"(?<major>\d+)(?:\.(?<minor>\d+))?') {
+        $major = [int]$Matches['major']
+        if ($major -eq 1 -and $Matches['minor']) {
+            return [int]$Matches['minor']
+        }
+        return $major
+    }
+
+    return $null
+}
+
+function Use-JavaHome {
+    param([string]$JavaHome)
+
+    if ([string]::IsNullOrWhiteSpace($JavaHome)) {
+        return $false
+    }
+
+    $resolvedHome = $JavaHome.TrimEnd('\\')
+    $javaExe = Join-Path $resolvedHome "bin\java.exe"
+    if (-not (Test-Path $javaExe)) {
+        return $false
+    }
+
+    $env:JAVA_HOME = $resolvedHome
+    if (-not ($env:PATH -split ';' | Where-Object { $_ -eq "$resolvedHome\bin" })) {
+        $env:PATH = "$resolvedHome\bin;$env:PATH"
+    }
+    return $true
+}
+
+function Find-Java21Home {
+    $candidates = New-Object System.Collections.Generic.List[string]
+
+    if ($env:JAVA_HOME) {
+        $candidates.Add($env:JAVA_HOME)
+    }
+
+    $javaLocations = @(
+        "C:\Program Files\Eclipse Adoptium",
+        "C:\Program Files\Adoptium",
+        "C:\Program Files\Java",
+        "C:\Program Files\Microsoft",
+        "C:\Program Files\Amazon Corretto",
+        "$env:USERPROFILE\AppData\Local\Programs\Eclipse Adoptium"
+    )
+
+    foreach ($location in $javaLocations) {
+        if (-not (Test-Path $location)) {
+            continue
+        }
+
+        Get-ChildItem -Path $location -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '21' } |
+            Sort-Object Name -Descending |
+            ForEach-Object {
+                $candidates.Add($_.FullName)
+            }
+    }
+
+    foreach ($candidate in ($candidates | Select-Object -Unique)) {
+        if (-not (Use-JavaHome $candidate)) {
+            continue
+        }
+
+        try {
+            $javaVersion = & java -version 2>&1
+            $majorVersion = Get-JavaMajorVersion $javaVersion
+            if ($LASTEXITCODE -eq 0 -and $majorVersion -ge 21) {
+                Write-Status "Using Java $majorVersion from: $candidate" "SUCCESS"
+                return $true
+            }
+        } catch {
+            # Keep searching
+        }
+    }
+
+    return $false
+}
+
 function Check-Java {
     try {
         $javaVersion = & java -version 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            Write-Status "Java found: $($javaVersion[0])" "SUCCESS"
+        $majorVersion = Get-JavaMajorVersion $javaVersion
+        if ($LASTEXITCODE -eq 0 -and $majorVersion -ge 21) {
+            Write-Status "Java $majorVersion found: $($javaVersion[0])" "SUCCESS"
             return $true
+        }
+
+        if ($LASTEXITCODE -eq 0) {
+            Write-Status "Detected Java $majorVersion, but Java 21 or newer is required." "WARNING"
         }
     } catch {
         Write-Status "Java not found in PATH" "WARNING"
     }
-    
-    # Check common installation locations
-    $javaLocations = @(
-        "C:\Program Files\Eclipse Adoptium",
-        "C:\Program Files\Java",
-        "$env:USERPROFILE\AppData\Local\Programs\Eclipse Adoptium"
-    )
-    
-    foreach ($location in $javaLocations) {
-        if (Test-Path "$location") {
-            $javaExe = Get-ChildItem -Path "$location" -Filter "java.exe" -Recurse | Select-Object -First 1
-            if ($javaExe) {
-                Write-Status "Found Java at: $($javaExe.Directory)" "SUCCESS"
-                $env:PATH = "$($javaExe.Directory);$env:PATH"
-                return $true
-            }
-        }
+
+    if (Find-Java21Home) {
+        return $true
     }
-    
+
     return $false
 }
 
@@ -76,15 +160,18 @@ function Install-Java {
     
     Write-Status "Installing Java 21..." "INFO"
     try {
-        Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$javaInstaller`" /quiet /qn" -Wait
-        Write-Status "Java 21 installed successfully" "SUCCESS"
-        
-        # Add Java to PATH
-        $javaHome = "C:\Program Files\Eclipse Adoptium\jdk-21.0.1+12"
-        if (Test-Path $javaHome) {
-            $env:JAVA_HOME = $javaHome
-            $env:PATH = "$javaHome\bin;$env:PATH"
+        $installProcess = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$javaInstaller`" /quiet /qn" -Wait -PassThru
+        if ($installProcess.ExitCode -ne 0) {
+            Write-Status "Java installer exited with code $($installProcess.ExitCode)" "ERROR"
+            return $false
         }
+
+        if (-not (Find-Java21Home)) {
+            Write-Status "Java installer finished, but Java 21 could not be activated automatically." "ERROR"
+            return $false
+        }
+
+        Write-Status "Java 21 installed successfully" "SUCCESS"
         
         # Cleanup installer
         Remove-Item -Path $javaInstaller -Force -ErrorAction SilentlyContinue
@@ -380,7 +467,15 @@ Write-Host ""
 Write-Status "Verifying installations..." "INFO"
 try {
     $javaVer = & java -version 2>&1
-    Write-Status "Java: $($javaVer[0])" "SUCCESS"
+    $javaMajor = Get-JavaMajorVersion $javaVer
+    if (-not $javaMajor -or $javaMajor -lt 21) {
+        Write-Status "Java 21 or newer is required. Detected: $($javaVer[0])" "ERROR"
+        exit 1
+    }
+    Write-Status "Java ${javaMajor}: $($javaVer[0])" "SUCCESS"
+    if ($env:JAVA_HOME) {
+        Write-Status "JAVA_HOME: $env:JAVA_HOME" "INFO"
+    }
 } catch {
     Write-Status "Java verification failed" "ERROR"
     exit 1
