@@ -195,10 +195,11 @@ function Start-Application {
     Write-Status "Starting Backend Server on port 8080..." "INFO"
     $backendProcess = Start-Process -FilePath powershell.exe -ArgumentList "-NoProfile", "-Command", "cd '$backendDir'; & '$mavenCmd' -q -f '$projectPom' -pl backend -am spring-boot:run" -WindowStyle Hidden -PassThru
     
-    Write-Status "Waiting for backend to initialize..." "INFO"
+    Write-Status "Waiting for backend to initialize (first run on a new laptop can take longer)..." "INFO"
     
-    # Health check: wait for backend to be ready
-    $maxAttempts = 30
+    # On a fresh machine Maven Wrapper may still download dependencies, so allow more time
+    # before assuming the cloud-backed startup failed.
+    $maxAttempts = 120
     $attempt = 0
     $backendReady = $false
     
@@ -217,7 +218,7 @@ function Start-Application {
     }
     
     if (-not $backendReady) {
-        Write-Status "Production backend failed, trying dev mode (H2 database)..." "WARNING"
+        Write-Status "Cloud backend not ready in time; switching to local dev mode (H2 database)..." "WARNING"
         
         # Kill the failed backend process
         Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
@@ -227,7 +228,7 @@ function Start-Application {
         
         # Wait for dev backend to start
         $attempt = 0
-        while ($attempt -lt 20 -and -not $backendReady) {
+        while ($attempt -lt 60 -and -not $backendReady) {
             $attempt++
             try {
                 $response = Invoke-WebRequest -Uri "http://localhost:8080/api/debug/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
