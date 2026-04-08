@@ -1,5 +1,5 @@
 # ASCB Database System - Setup and Run Script
-# This script uses Java 17+ (and can install Java 21 if needed) plus Maven Wrapper, then starts the application
+# This script uses Java 17+ and can automatically download a portable Java 17 JDK if needed, then starts the application
 # 
 # Usage:
 #   .\setup-and-run.ps1                           (Full setup and run)
@@ -15,7 +15,7 @@ param(
 )
 
 $RequiredJavaVersion = 17
-$PreferredJavaVersion = 21
+$PreferredJavaVersion = 17
 
 function Write-Status {
     param([string]$Message, [string]$Status = "INFO")
@@ -144,39 +144,58 @@ function Check-Java {
 }
 
 function Install-Java {
-    Write-Status "Installing Java 21 (Eclipse Temurin)..." "INFO"
-    
-    $javaUrl = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.1%2B12/OpenJDK21U-jdk_x64_windows_hotspot_21.0.1_12.msi"
-    $javaInstaller = "$env:TEMP\java-installer.msi"
-    
-    Write-Status "Downloading Java 21..." "INFO"
+    Write-Status "Installing Java $PreferredJavaVersion (Eclipse Temurin portable JDK)..." "INFO"
+
+    $javaUrl = "https://api.adoptium.net/v3/binary/latest/$PreferredJavaVersion/ga/windows/x64/jdk/hotspot/normal/eclipse"
+    $javaZip = Join-Path $env:TEMP "temurin-$PreferredJavaVersion-jdk.zip"
+    $javaExtract = Join-Path $env:TEMP "temurin-$PreferredJavaVersion-extract"
+    $javaBase = Join-Path $env:LOCALAPPDATA "Programs\Eclipse Adoptium"
+    $javaHome = Join-Path $javaBase "jdk-$PreferredJavaVersion"
+
+    Write-Status "Downloading Java $PreferredJavaVersion..." "INFO"
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri $javaUrl -OutFile $javaInstaller -UseBasicParsing
+        Invoke-WebRequest -Uri $javaUrl -OutFile $javaZip -UseBasicParsing
         Write-Status "Download completed" "SUCCESS"
     } catch {
         Write-Status "Failed to download Java: $_" "ERROR"
-        Write-Status "Please download Java 21 manually from: https://adoptium.net/temurin/releases/" "WARNING"
+        Write-Status "Please download Java $PreferredJavaVersion manually from: https://adoptium.net/temurin/releases/" "WARNING"
         return $false
     }
-    
-    Write-Status "Installing Java 21..." "INFO"
+
+    Write-Status "Extracting Java $PreferredJavaVersion..." "INFO"
     try {
-        $installProcess = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$javaInstaller`" /quiet /qn" -Wait -PassThru
-        if ($installProcess.ExitCode -ne 0) {
-            Write-Status "Java installer exited with code $($installProcess.ExitCode)" "ERROR"
-            return $false
+        if (Test-Path $javaExtract) {
+            Remove-Item -Path $javaExtract -Recurse -Force
+        }
+        if (Test-Path $javaHome) {
+            Remove-Item -Path $javaHome -Recurse -Force
         }
 
-        if (-not (Find-SupportedJavaHome)) {
-            Write-Status "Java installer finished, but a supported Java version could not be activated automatically." "ERROR"
-            return $false
+        New-Item -ItemType Directory -Force -Path $javaBase | Out-Null
+        Expand-Archive -Path $javaZip -DestinationPath $javaExtract -Force
+
+        $jdkFolder = Get-ChildItem -Path $javaExtract -Directory -ErrorAction Stop | Select-Object -First 1
+        if (-not $jdkFolder) {
+            throw "Could not find the extracted JDK folder."
         }
 
-        Write-Status "Java 21 installed successfully" "SUCCESS"
-        
-        # Cleanup installer
-        Remove-Item -Path $javaInstaller -Force -ErrorAction SilentlyContinue
+        Move-Item -Path $jdkFolder.FullName -Destination $javaHome
+
+        if (-not (Use-JavaHome $javaHome)) {
+            throw "Could not activate JAVA_HOME for the downloaded JDK."
+        }
+
+        $javaVersion = & java -version 2>&1
+        $majorVersion = Get-JavaMajorVersion $javaVersion
+        if ($LASTEXITCODE -ne 0 -or $majorVersion -lt $RequiredJavaVersion) {
+            throw "Downloaded Java version is not supported: $($javaVersion[0])"
+        }
+
+        Write-Status "Java $majorVersion installed successfully at: $javaHome" "SUCCESS"
+
+        Remove-Item -Path $javaZip -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $javaExtract -Recurse -Force -ErrorAction SilentlyContinue
         return $true
     } catch {
         Write-Status "Installation failed: $_" "ERROR"
@@ -460,9 +479,9 @@ Write-Host ""
 if (-not $SkipJavaSetup) {
     Write-Status "Checking Java installation..." "INFO"
     if (-not (Check-Java)) {
-        Write-Status "Java not found. Installing Java 21..." "WARNING"
+        Write-Status "Java not found. Installing Java 17 automatically..." "WARNING"
         if (-not (Install-Java)) {
-            Write-Status "Java installation failed. Please install Java 21 manually." "ERROR"
+            Write-Status "Java installation failed. Please install Java 17 manually." "ERROR"
             exit 1
         }
     }
