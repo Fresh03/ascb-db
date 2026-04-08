@@ -1,6 +1,6 @@
 # ASCB Database Management System
 
-A complete Java 21 application for managing ASCB volunteers through a web-connected database.
+A complete Java 17+ application for managing ASCB volunteers through a web-connected database.
 
 ## Quick Start (3 Options)
 
@@ -17,7 +17,7 @@ setup-and-run.ps1          # PowerShell version (auto-downloads Java & Maven)
 ```
 
 **What happens:**
-- ✅ Detects Java 21 (downloads if missing)
+- ✅ Detects Java 17+ (downloads if missing)
 - ✅ Detects Maven (downloads if missing)
 - ✅ Builds and starts backend on port 8080
 - ✅ **Auto-fallback to dev mode** if production database unavailable
@@ -104,7 +104,7 @@ mvn clean compile install javafx:run
 ## Requirements
 
 **Automatically installed by setup script:**
-- ✅ Java 21 JDK (Eclipse Temurin)
+- ✅ Java 17 JDK (Eclipse Temurin)
 - ✅ Maven 3.9.6
 
 **Manually required:**
@@ -157,7 +157,7 @@ pkill java                    # Linux/Mac
 ### "Java not found"
 ```bash
 # Download from: https://adoptium.net/temurin/releases/
-# Install Java 21 for your OS
+# Install Java 17 for your OS
 # Restart setup script
 ```
 
@@ -276,7 +276,7 @@ REM - SETUP_INSTRUCTIONS.md
 ### IDE Setup (IntelliJ IDEA or VS Code)
 
 1. **Open project** → Select ascb-db folder
-2. **Configure JDK** → Set to Java 21
+2. **Configure JDK** → Set to Java 17 or newer
 3. **Run configurations:**
    - Backend: `Main class: ro.ascb.ascb_db_backend.AscbDbBackendApplication`
    - Frontend: `Main class: ro.ascb.frontend.MainApp`
@@ -326,7 +326,7 @@ If you encounter issues:
 1. **Check logs** in `ascb-db/backend/target/` for error details
 2. **Verify requirements** in Terminal:
    ```bash
-   java -version         # Should show Java 21
+   java -version         # Should show Java 17 or newer
    mvn -version          # Should show Maven 3.9.x
    ```
 
@@ -350,7 +350,7 @@ If you encounter issues:
 ## License & Credits
 
 ASCB Database Management System  
-Built with Java 21, Spring Boot, and JavaFX
+Built with Java 17, Spring Boot, and JavaFX
 
 ---
 

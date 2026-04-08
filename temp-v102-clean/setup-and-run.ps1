@@ -1,16 +1,21 @@
 # ASCB Database System - Setup and Run Script
-# This script automatically installs Java 21 and Maven if not present, then starts the application
+# This script uses Java 17+ and can automatically download a portable Java 17 JDK if needed, then starts the application
 # 
 # Usage:
 #   .\setup-and-run.ps1                           (Full setup and run)
 #   .\setup-and-run.ps1 -SkipJavaSetup            (Skip Java check, use existing)
 #   .\setup-and-run.ps1 -SkipMavenSetup           (Skip Maven check, use existing)
+#   .\setup-and-run.ps1 -PreferCloudDb            (Try TiDB Cloud first; otherwise local H2 is used)
 #   .\setup-and-run.ps1 -SkipJavaSetup -SkipMavenSetup  (Use existing tools, just run app)
 
 param(
     [switch]$SkipJavaSetup = $false,
-    [switch]$SkipMavenSetup = $false
+    [switch]$SkipMavenSetup = $false,
+    [switch]$PreferCloudDb = $false
 )
+
+$RequiredJavaVersion = 17
+$PreferredJavaVersion = 17
 
 function Write-Status {
     param([string]$Message, [string]$Status = "INFO")
@@ -23,69 +28,174 @@ function Write-Status {
     Write-Host "[$Status] $Message" -ForegroundColor $colors[$Status]
 }
 
+function Get-JavaMajorVersion {
+    param([object]$JavaVersionOutput)
+
+    if ($null -eq $JavaVersionOutput) {
+        return $null
+    }
+
+    $versionText = if ($JavaVersionOutput -is [System.Array]) {
+        $JavaVersionOutput -join "`n"
+    } else {
+        [string]$JavaVersionOutput
+    }
+
+    if ($versionText -match 'version\s+"(?<major>\d+)(?:\.(?<minor>\d+))?') {
+        $major = [int]$Matches['major']
+        if ($major -eq 1 -and $Matches['minor']) {
+            return [int]$Matches['minor']
+        }
+        return $major
+    }
+
+    return $null
+}
+
+function Use-JavaHome {
+    param([string]$JavaHome)
+
+    if ([string]::IsNullOrWhiteSpace($JavaHome)) {
+        return $false
+    }
+
+    $resolvedHome = $JavaHome.TrimEnd('\\')
+    $javaExe = Join-Path $resolvedHome "bin\java.exe"
+    if (-not (Test-Path $javaExe)) {
+        return $false
+    }
+
+    $env:JAVA_HOME = $resolvedHome
+    if (-not ($env:PATH -split ';' | Where-Object { $_ -eq "$resolvedHome\bin" })) {
+        $env:PATH = "$resolvedHome\bin;$env:PATH"
+    }
+    return $true
+}
+
+function Find-SupportedJavaHome {
+    $candidates = New-Object System.Collections.Generic.List[string]
+
+    if ($env:JAVA_HOME) {
+        $candidates.Add($env:JAVA_HOME)
+    }
+
+    $javaLocations = @(
+        "C:\Program Files\Eclipse Adoptium",
+        "C:\Program Files\Adoptium",
+        "C:\Program Files\Java",
+        "C:\Program Files\Microsoft",
+        "C:\Program Files\Amazon Corretto",
+        "$env:USERPROFILE\AppData\Local\Programs\Eclipse Adoptium"
+    )
+
+    foreach ($location in $javaLocations) {
+        if (-not (Test-Path $location)) {
+            continue
+        }
+
+        Get-ChildItem -Path $location -Directory -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending |
+            ForEach-Object {
+                $candidates.Add($_.FullName)
+            }
+    }
+
+    foreach ($candidate in ($candidates | Select-Object -Unique)) {
+        if (-not (Use-JavaHome $candidate)) {
+            continue
+        }
+
+        try {
+            $javaVersion = & java -version 2>&1
+            $majorVersion = Get-JavaMajorVersion $javaVersion
+            if ($LASTEXITCODE -eq 0 -and $majorVersion -ge $RequiredJavaVersion) {
+                Write-Status "Using Java $majorVersion from: $candidate" "SUCCESS"
+                return $true
+            }
+        } catch {
+            # Keep searching
+        }
+    }
+
+    return $false
+}
+
 function Check-Java {
     try {
         $javaVersion = & java -version 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            Write-Status "Java found: $($javaVersion[0])" "SUCCESS"
+        $majorVersion = Get-JavaMajorVersion $javaVersion
+        if ($LASTEXITCODE -eq 0 -and $majorVersion -ge $RequiredJavaVersion) {
+            Write-Status "Java $majorVersion found: $($javaVersion[0])" "SUCCESS"
             return $true
+        }
+
+        if ($LASTEXITCODE -eq 0) {
+            Write-Status "Detected Java $majorVersion, but Java $RequiredJavaVersion or newer is required." "WARNING"
         }
     } catch {
         Write-Status "Java not found in PATH" "WARNING"
     }
-    
-    # Check common installation locations
-    $javaLocations = @(
-        "C:\Program Files\Eclipse Adoptium",
-        "C:\Program Files\Java",
-        "$env:USERPROFILE\AppData\Local\Programs\Eclipse Adoptium"
-    )
-    
-    foreach ($location in $javaLocations) {
-        if (Test-Path "$location") {
-            $javaExe = Get-ChildItem -Path "$location" -Filter "java.exe" -Recurse | Select-Object -First 1
-            if ($javaExe) {
-                Write-Status "Found Java at: $($javaExe.Directory)" "SUCCESS"
-                $env:PATH = "$($javaExe.Directory);$env:PATH"
-                return $true
-            }
-        }
+
+    if (Find-SupportedJavaHome) {
+        return $true
     }
-    
+
     return $false
 }
 
 function Install-Java {
-    Write-Status "Installing Java 21 (Eclipse Temurin)..." "INFO"
-    
-    $javaUrl = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.1%2B12/OpenJDK21U-jdk_x64_windows_hotspot_21.0.1_12.msi"
-    $javaInstaller = "$env:TEMP\java-installer.msi"
-    
-    Write-Status "Downloading Java 21..." "INFO"
+    Write-Status "Installing Java $PreferredJavaVersion (Eclipse Temurin portable JDK)..." "INFO"
+
+    $javaUrl = "https://api.adoptium.net/v3/binary/latest/$PreferredJavaVersion/ga/windows/x64/jdk/hotspot/normal/eclipse"
+    $javaZip = Join-Path $env:TEMP "temurin-$PreferredJavaVersion-jdk.zip"
+    $javaExtract = Join-Path $env:TEMP "temurin-$PreferredJavaVersion-extract"
+    $javaBase = Join-Path $env:LOCALAPPDATA "Programs\Eclipse Adoptium"
+    $javaHome = Join-Path $javaBase "jdk-$PreferredJavaVersion"
+
+    Write-Status "Downloading Java $PreferredJavaVersion..." "INFO"
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri $javaUrl -OutFile $javaInstaller -UseBasicParsing
+        Invoke-WebRequest -Uri $javaUrl -OutFile $javaZip -UseBasicParsing
         Write-Status "Download completed" "SUCCESS"
     } catch {
         Write-Status "Failed to download Java: $_" "ERROR"
-        Write-Status "Please download Java 21 manually from: https://adoptium.net/temurin/releases/" "WARNING"
+        Write-Status "Please download Java $PreferredJavaVersion manually from: https://adoptium.net/temurin/releases/" "WARNING"
         return $false
     }
-    
-    Write-Status "Installing Java 21..." "INFO"
+
+    Write-Status "Extracting Java $PreferredJavaVersion..." "INFO"
     try {
-        Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$javaInstaller`" /quiet /qn" -Wait
-        Write-Status "Java 21 installed successfully" "SUCCESS"
-        
-        # Add Java to PATH
-        $javaHome = "C:\Program Files\Eclipse Adoptium\jdk-21.0.1+12"
-        if (Test-Path $javaHome) {
-            $env:JAVA_HOME = $javaHome
-            $env:PATH = "$javaHome\bin;$env:PATH"
+        if (Test-Path $javaExtract) {
+            Remove-Item -Path $javaExtract -Recurse -Force
         }
-        
-        # Cleanup installer
-        Remove-Item -Path $javaInstaller -Force -ErrorAction SilentlyContinue
+        if (Test-Path $javaHome) {
+            Remove-Item -Path $javaHome -Recurse -Force
+        }
+
+        New-Item -ItemType Directory -Force -Path $javaBase | Out-Null
+        Expand-Archive -Path $javaZip -DestinationPath $javaExtract -Force
+
+        $jdkFolder = Get-ChildItem -Path $javaExtract -Directory -ErrorAction Stop | Select-Object -First 1
+        if (-not $jdkFolder) {
+            throw "Could not find the extracted JDK folder."
+        }
+
+        Move-Item -Path $jdkFolder.FullName -Destination $javaHome
+
+        if (-not (Use-JavaHome $javaHome)) {
+            throw "Could not activate JAVA_HOME for the downloaded JDK."
+        }
+
+        $javaVersion = & java -version 2>&1
+        $majorVersion = Get-JavaMajorVersion $javaVersion
+        if ($LASTEXITCODE -ne 0 -or $majorVersion -lt $RequiredJavaVersion) {
+            throw "Downloaded Java version is not supported: $($javaVersion[0])"
+        }
+
+        Write-Status "Java $majorVersion installed successfully at: $javaHome" "SUCCESS"
+
+        Remove-Item -Path $javaZip -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $javaExtract -Recurse -Force -ErrorAction SilentlyContinue
         return $true
     } catch {
         Write-Status "Installation failed: $_" "ERROR"
@@ -170,12 +280,44 @@ function Install-Maven {
     }
 }
 
+function Show-RecentLog {
+    param(
+        [string]$Label,
+        [string]$LogPath,
+        [int]$Lines = 30
+    )
+
+    if (Test-Path $LogPath) {
+        Write-Host ""
+        Write-Status "$Label (last $Lines lines):" "WARNING"
+        Get-Content -Path $LogPath -Tail $Lines -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host "  $_"
+        }
+    }
+}
+
 function Start-Application {
     Write-Status "Starting ASCB Database System..." "INFO"
     
     $scriptDir = Split-Path -Parent $PSCommandPath
     $backendDir = Join-Path $scriptDir "ascb-db\backend"
     $frontendDir = Join-Path $scriptDir "ascb-db\frontend"
+    $logsDir = Join-Path $scriptDir "logs"
+    $guiMarker = Join-Path $env:TEMP "ascb_gui_ready.txt"
+    $cloudDbUrl = "jdbc:mysql://gateway01.eu-central-1.prod.aws.tidbcloud.com:4000/ascb_db?sslMode=REQUIRED&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8"
+    $cloudDbUser = "4Hta8q1eQcF14e8.root"
+    $cloudDbPassword = "4LqGzVogtBT8GpvH"
+    $localDbUrl = "jdbc:h2:file:~/ascbdb/ascbdb;AUTO_SERVER=TRUE;MODE=MySQL;DB_CLOSE_DELAY=-1"
+    $localDbUser = "sa"
+    $localDbPassword = ""
+    $mavenCmd = Join-Path $backendDir "mvnw.cmd"
+    if (-not (Test-Path $mavenCmd)) {
+        $mavenCmd = "mvn"
+    }
+
+    New-Item -ItemType Directory -Force -Path $logsDir | Out-Null
+    Remove-Item $guiMarker -Force -ErrorAction SilentlyContinue
+    Write-Status "Logs will be saved to: $logsDir" "INFO"
     
     if (-not (Test-Path $backendDir)) {
         Write-Status "Backend directory not found at: $backendDir" "ERROR"
@@ -187,48 +329,81 @@ function Start-Application {
         return $false
     }
     
-    Write-Status "Starting Backend Server on port 8080..." "INFO"
-    $backendProcess = Start-Process -FilePath cmd.exe -ArgumentList "/c", "cd /d `"$backendDir`" && mvn spring-boot:run -q" -WindowStyle Hidden -PassThru
-    
-    Write-Status "Waiting for backend to initialize..." "INFO"
-    
-    # Health check: wait for backend to be ready
-    $maxAttempts = 30
-    $attempt = 0
     $backendReady = $false
-    
+    $usingCloudDb = $false
+    $attempt = 0
+    $maxAttempts = 60
+
+    $backendStdOut = Join-Path $logsDir "backend.log"
+    $backendStdErr = Join-Path $logsDir "backend-error.log"
+    $frontendStdOut = Join-Path $logsDir "frontend.log"
+    $frontendStdErr = Join-Path $logsDir "frontend-error.log"
+
+    Remove-Item $backendStdOut, $backendStdErr, $frontendStdOut, $frontendStdErr -Force -ErrorAction SilentlyContinue
+
+    Write-Status "Trying TiDB Cloud first; local H2 is used only as fallback." "INFO"
+    Write-Status "Starting Backend Server on port 8080 using TiDB Cloud..." "INFO"
+    $backendProcess = Start-Process -FilePath $mavenCmd `
+        -ArgumentList @("-q", "spring-boot:run") `
+        -WorkingDirectory $backendDir `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $backendStdOut `
+        -RedirectStandardError $backendStdErr `
+        -PassThru
+
+    Write-Status "Waiting for cloud backend to initialize (first run on a new laptop can take longer)..." "INFO"
+    $maxAttempts = 120
+
     while ($attempt -lt $maxAttempts -and -not $backendReady) {
+        if ($backendProcess.HasExited) {
+            break
+        }
+
         $attempt++
         try {
             $response = Invoke-WebRequest -Uri "http://localhost:8080/api/debug/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
             if ($response.StatusCode -eq 200) {
                 $backendReady = $true
-                Write-Status "Backend is ready (took $attempt seconds)" "SUCCESS"
+                $usingCloudDb = $true
+                Write-Status "Cloud backend is ready (took $attempt seconds)" "SUCCESS"
             }
         } catch {
             Write-Host -NoNewline "."
             Start-Sleep -Seconds 1
         }
     }
-    
+
     if (-not $backendReady) {
-        Write-Status "Production backend failed, trying dev mode (H2 database)..." "WARNING"
-        
-        # Kill the failed backend process
-        Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
-        
-        # Start backend in dev mode
-        $backendProcess = Start-Process -FilePath cmd.exe -ArgumentList "/c", "cd /d `"$backendDir`" && mvn -DskipTests -Dspring-boot.run.profiles=dev spring-boot:run -q" -WindowStyle Hidden -PassThru
-        
-        # Wait for dev backend to start
+        Write-Status "Cloud backend not ready in time; switching to local dev mode (H2 database)..." "WARNING"
+        if (-not $backendProcess.HasExited) {
+            Stop-Process -Id $backendProcess.Id -ErrorAction SilentlyContinue
+        }
         $attempt = 0
-        while ($attempt -lt 20 -and -not $backendReady) {
+    }
+
+    if (-not $backendReady) {
+        Write-Status "Starting Backend Server on port 8080 using local H2 mode..." "INFO"
+        $backendProcess = Start-Process -FilePath $mavenCmd `
+            -ArgumentList @("-q", "-Dspring-boot.run.profiles=dev", "spring-boot:run") `
+            -WorkingDirectory $backendDir `
+            -WindowStyle Hidden `
+            -RedirectStandardOutput $backendStdOut `
+            -RedirectStandardError $backendStdErr `
+            -PassThru
+
+        Write-Status "Waiting for local backend to initialize..." "INFO"
+        while ($attempt -lt $maxAttempts -and -not $backendReady) {
+            if ($backendProcess.HasExited) {
+                break
+            }
+
             $attempt++
             try {
                 $response = Invoke-WebRequest -Uri "http://localhost:8080/api/debug/health" -TimeoutSec 2 -ErrorAction SilentlyContinue
                 if ($response.StatusCode -eq 200) {
                     $backendReady = $true
-                    Write-Status "Dev backend is ready (took $attempt seconds)" "SUCCESS"
+                    $usingCloudDb = $false
+                    Write-Status "Local backend is ready (took $attempt seconds)" "SUCCESS"
                 }
             } catch {
                 Write-Host -NoNewline "."
@@ -238,28 +413,56 @@ function Start-Application {
     }
     
     if (-not $backendReady) {
-        Write-Status "Backend failed to start in both modes. Check network and logs." "ERROR"
+        Write-Status "Backend failed to start in both modes. Check the log files in: $logsDir" "ERROR"
+        Show-RecentLog -Label "Backend standard output" -LogPath $backendStdOut
+        Show-RecentLog -Label "Backend errors" -LogPath $backendStdErr
         return $false
     }
     
     Write-Status "Starting Frontend Application..." "INFO"
-    Start-Process -FilePath cmd.exe -ArgumentList "/c", "cd /d `"$frontendDir`" && mvn -DskipTests javafx:run" -WindowStyle Minimized
+    $env:BACKEND_URL = 'http://localhost:8080'
+    if ($usingCloudDb) {
+        $env:ASCB_DB_URL = $cloudDbUrl
+        $env:ASCB_DB_USER = $cloudDbUser
+        $env:ASCB_DB_PASSWORD = $cloudDbPassword
+        Write-Status "Frontend will use TiDB Cloud." "INFO"
+    } else {
+        $env:ASCB_DB_URL = $localDbUrl
+        $env:ASCB_DB_USER = $localDbUser
+        $env:ASCB_DB_PASSWORD = $localDbPassword
+        Write-Status "Frontend will use local H2 fallback." "WARNING"
+    }
+    $frontendProcess = Start-Process -FilePath $mavenCmd `
+        -ArgumentList @("-q", "-DskipTests", "org.openjfx:javafx-maven-plugin:0.0.8:run") `
+        -WorkingDirectory $frontendDir `
+        -WindowStyle Minimized `
+        -RedirectStandardOutput $frontendStdOut `
+        -RedirectStandardError $frontendStdErr `
+        -PassThru
     
     Write-Status "Waiting for GUI to appear..." "INFO"
     $counter = 0
     $maxWait = 60
     
     while ($counter -lt $maxWait) {
-        if (Test-Path "$env:TEMP\ascb_gui_ready.txt") {
+        if (Test-Path $guiMarker) {
             Write-Status "GUI is ready! Application started successfully!" "SUCCESS"
-            Remove-Item "$env:TEMP\ascb_gui_ready.txt" -Force -ErrorAction SilentlyContinue
+            Remove-Item $guiMarker -Force -ErrorAction SilentlyContinue
             return $true
         }
+
+        if ($frontendProcess.HasExited) {
+            Write-Status "Frontend process closed before the GUI appeared. Check the log files in: $logsDir" "ERROR"
+            Show-RecentLog -Label "Frontend standard output" -LogPath $frontendStdOut
+            Show-RecentLog -Label "Frontend errors" -LogPath $frontendStdErr
+            return $false
+        }
+
         Start-Sleep -Seconds 1
         $counter++
     }
     
-    Write-Status "Application started (GUI ready timeout)" "WARNING"
+    Write-Status "GUI is still initializing. The app may already be opening; logs are in: $logsDir" "WARNING"
     return $true
 }
 
@@ -274,16 +477,19 @@ Write-Host ""
 if (-not $SkipJavaSetup) {
     Write-Status "Checking Java installation..." "INFO"
     if (-not (Check-Java)) {
-        Write-Status "Java not found. Installing Java 21..." "WARNING"
+        Write-Status "Java not found. Installing Java 17 automatically..." "WARNING"
         if (-not (Install-Java)) {
-            Write-Status "Java installation failed. Please install Java 21 manually." "ERROR"
+            Write-Status "Java installation failed. Please install Java 17 manually." "ERROR"
             exit 1
         }
     }
 }
 
-# Check and install Maven
-if (-not $SkipMavenSetup) {
+# Check and install Maven only if the bundled Maven Wrapper is unavailable
+$mavenWrapper = Join-Path $PSScriptRoot "ascb-db\backend\mvnw.cmd"
+if (Test-Path $mavenWrapper) {
+    Write-Status "Using bundled Maven Wrapper - no Maven installation required." "SUCCESS"
+} elseif (-not $SkipMavenSetup) {
     Write-Status "Checking Maven installation..." "INFO"
     if (-not (Check-Maven)) {
         Write-Status "Maven not found. Installing Maven 3.9.6..." "WARNING"
@@ -299,15 +505,28 @@ Write-Host ""
 Write-Status "Verifying installations..." "INFO"
 try {
     $javaVer = & java -version 2>&1
-    Write-Status "Java: $($javaVer[0])" "SUCCESS"
+    $javaMajor = Get-JavaMajorVersion $javaVer
+    if (-not $javaMajor -or $javaMajor -lt $RequiredJavaVersion) {
+        Write-Status "Java $RequiredJavaVersion or newer is required. Detected: $($javaVer[0])" "ERROR"
+        exit 1
+    }
+    Write-Status "Java ${javaMajor}: $($javaVer[0])" "SUCCESS"
+    if ($env:JAVA_HOME) {
+        Write-Status "JAVA_HOME: $env:JAVA_HOME" "INFO"
+    }
 } catch {
     Write-Status "Java verification failed" "ERROR"
     exit 1
 }
 
 try {
-    $mvnVer = & mvn -version 2>&1
-    Write-Status "Maven: $($mvnVer[0])" "SUCCESS"
+    if (Test-Path $mavenWrapper) {
+        $mvnVer = & $mavenWrapper -version 2>&1
+        Write-Status "Maven Wrapper: $($mvnVer[0])" "SUCCESS"
+    } else {
+        $mvnVer = & mvn -version 2>&1
+        Write-Status "Maven: $($mvnVer[0])" "SUCCESS"
+    }
 } catch {
     Write-Status "Maven verification failed" "ERROR"
     exit 1

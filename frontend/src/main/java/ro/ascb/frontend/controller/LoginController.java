@@ -68,14 +68,14 @@ public class LoginController {
             Scanner scanner = new Scanner(responseStream, StandardCharsets.UTF_8);
             String response = scanner.useDelimiter("\\A").hasNext() ? scanner.next() : "";
             scanner.close();
+            response = response == null ? "" : response.trim();
 
-            if (code >= 200 && code < 300 && response.equals("Login reușit!")) {
-                // Deschide fereastra principală Main.fxml
+            if (code >= 200 && code < 300) {
                 FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/Main.fxml"));
                 Parent root = fxmlLoader.load();
-                Stage stage = (Stage) loginButton.getScene().getWindow(); // preia fereastra curentă
+                Stage stage = (Stage) loginButton.getScene().getWindow();
                 stage.setScene(new Scene(root));
-                stage.setTitle("ASCb App");
+                stage.setTitle("ASCB App");
                 stage.show();
             } else {
                 messageLabel.setText(response.isEmpty() ? ("Eroare: HTTP " + code) : response);

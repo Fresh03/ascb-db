@@ -10,7 +10,7 @@
 
    👉 DOUBLE-CLICK: setup-and-run.bat
 
-   ✓ Automatically downloads Java 21 (if needed)
+   ✓ Automatically downloads Java 17 (if needed)
    ✓ Automatically downloads Maven (if needed)
    ✓ Starts the application
    ✓ Closes launcher when GUI appears
@@ -19,7 +19,7 @@
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✅ IF YOU ALREADY HAVE JAVA 21 & MAVEN INSTALLED:
+✅ IF YOU ALREADY HAVE JAVA 17+ & MAVEN INSTALLED:
 
    👉 DOUBLE-CLICK: start-ascb.bat
 

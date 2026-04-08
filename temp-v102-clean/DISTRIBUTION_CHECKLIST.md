@@ -15,9 +15,9 @@ When distributing ASCB to others, include these files in the ZIP archive:
 
 When a user runs setup-and-run.bat on a fresh Windows system, the script will:
 
-1. **Check for Java 21**
+1. **Check for Java 17+**
    - If found → Use existing installation
-   - If not found → Download (≈200 MB) and install Eclipse Temurin 21
+   - If not found → Download (≈200 MB) and install Eclipse Temurin 17
 
 2. **Check for Maven 3.9.6**
    - If found → Use existing installation
@@ -46,7 +46,7 @@ Users must have **internet connection** for:
 ```
 Original ZIP (with source code):     ~50 MB
 After first run:
-  + Java 21 installation:           ~350 MB
+  + Java 17 installation:           ~300 MB
   + Maven installation:              ~40 MB
   + Project build artifacts:         ~500 MB
   ─────────────────────────────────────────
@@ -95,7 +95,7 @@ After first run:
 ## If Automatic Setup Fails:
 
 Users can manually follow SETUP_INSTRUCTIONS.md:
-1. Install Java 21 from adoptium.net
+1. Install Java 17 from adoptium.net
 2. Install Maven from maven.apache.org
 3. Run start-ascb.bat
 

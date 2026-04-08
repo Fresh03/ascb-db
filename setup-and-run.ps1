@@ -302,7 +302,6 @@ function Start-Application {
     $scriptDir = Split-Path -Parent $PSCommandPath
     $backendDir = Join-Path $scriptDir "ascb-db\backend"
     $frontendDir = Join-Path $scriptDir "ascb-db\frontend"
-    $projectPom = Join-Path $scriptDir "ascb-db\pom.xml"
     $logsDir = Join-Path $scriptDir "logs"
     $guiMarker = Join-Path $env:TEMP "ascb_gui_ready.txt"
     $cloudDbUrl = "jdbc:mysql://gateway01.eu-central-1.prod.aws.tidbcloud.com:4000/ascb_db?sslMode=REQUIRED&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8"
@@ -345,7 +344,7 @@ function Start-Application {
     Write-Status "Trying TiDB Cloud first; local H2 is used only as fallback." "INFO"
     Write-Status "Starting Backend Server on port 8080 using TiDB Cloud..." "INFO"
     $backendProcess = Start-Process -FilePath $mavenCmd `
-        -ArgumentList @("-q", "-f", $projectPom, "-pl", "backend", "-am", "spring-boot:run") `
+        -ArgumentList @("-q", "spring-boot:run") `
         -WorkingDirectory $backendDir `
         -WindowStyle Hidden `
         -RedirectStandardOutput $backendStdOut `
@@ -385,7 +384,7 @@ function Start-Application {
     if (-not $backendReady) {
         Write-Status "Starting Backend Server on port 8080 using local H2 mode..." "INFO"
         $backendProcess = Start-Process -FilePath $mavenCmd `
-            -ArgumentList @("-q", "-f", $projectPom, "-pl", "backend", "-am", "-Dspring-boot.run.profiles=dev", "spring-boot:run") `
+            -ArgumentList @("-q", "-Dspring-boot.run.profiles=dev", "spring-boot:run") `
             -WorkingDirectory $backendDir `
             -WindowStyle Hidden `
             -RedirectStandardOutput $backendStdOut `
@@ -433,9 +432,8 @@ function Start-Application {
         $env:ASCB_DB_PASSWORD = $localDbPassword
         Write-Status "Frontend will use local H2 fallback." "WARNING"
     }
-    $frontendPom = Join-Path $frontendDir "pom.xml"
     $frontendProcess = Start-Process -FilePath $mavenCmd `
-        -ArgumentList @("-q", "-f", $frontendPom, "-DskipTests", "org.openjfx:javafx-maven-plugin:0.0.8:run") `
+        -ArgumentList @("-q", "-DskipTests", "org.openjfx:javafx-maven-plugin:0.0.8:run") `
         -WorkingDirectory $frontendDir `
         -WindowStyle Minimized `
         -RedirectStandardOutput $frontendStdOut `

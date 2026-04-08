@@ -15,8 +15,8 @@ If you receive the ASCB application as a ZIP archive on a computer with **nothin
    - **OR Right-click** `setup-and-run.ps1` → **Run with PowerShell**
 
 3. **The script will automatically:**
-   - ✅ Detect if Java 21 is installed
-   - ✅ If NOT installed → Download and install Java 21 (200MB)
+   - ✅ Detect if Java 17+ is installed
+   - ✅ If NOT installed → Download and install Java 17 (200MB)
    - ✅ Detect if Maven is installed  
    - ✅ If NOT installed → Download and install Maven (10MB)
    - ✅ Start the backend server
@@ -29,9 +29,9 @@ If you receive the ASCB application as a ZIP archive on a computer with **nothin
 
 ### Option 2: Manual Installation (if auto-setup fails)
 
-#### Install Java 21:
+#### Install Java 17:
 1. Download from: https://adoptium.net/temurin/releases/
-2. Select **JDK 21** for Windows x64
+2. Select **JDK 17** for Windows x64
 3. Run the installer, follow the steps
 4. In Command Prompt, verify: `java -version`
 
@@ -81,7 +81,7 @@ mvn clean compile install javafx:run
 ## Requirements
 
 **Automatically handled by the setup script:**
-- ✅ Java 21 JDK
+- ✅ Java 17 JDK
 - ✅ Maven 3.9.6
 
 **Database:**
@@ -102,10 +102,10 @@ mvn clean compile install javafx:run
 
 ### "Java installation failed"
 **Solution:**
-1. Download Java 21 manually from https://adoptium.net/
+1. Download Java 17 manually from https://adoptium.net/
 2. Run the installer with Administrator rights
 3. Set environment variables manually:
-   - Create `JAVA_HOME` = `C:\Program Files\Eclipse Adoptium\jdk-21.x.x`
+   - Create `JAVA_HOME` = `C:\Program Files\Eclipse Adoptium\jdk-17.x.x`
    - Add to `PATH`: `%JAVA_HOME%\bin`
 
 ### "Maven installation failed"
